@@ -2337,3 +2337,35 @@ Return JSON: {"note": "one sentence on the idea of this week", "days": [{"dow": 
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
 })();
+
+
+/* ============================================================================
+   LEVEL//UP — SOLO LEVELING TYPE (appended; nothing above is changed)
+   Titles: your own copy of the Solo Leveling title font if you add one to fitness/fonts/,
+   otherwise Orbitron. System text: Rajdhani, the closest open match to the anime's System windows.
+   ============================================================================ */
+(function () {
+  'use strict';
+  const l = document.createElement('link'); l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap';
+  document.head.appendChild(l);
+  const css = document.createElement('style');
+  css.textContent = `
+    @font-face { font-family: 'SL Title'; src: url('fonts/solo-leveling.woff2') format('woff2'), url('fonts/solo-leveling.ttf') format('truetype'), url('fonts/solo-leveling.otf') format('opentype'); font-display: swap; }
+    html body, html body button, html body input, html body select, html body textarea { font-family: 'Rajdhani', 'Sora', 'Inter', Arial, sans-serif !important; font-weight: 600; letter-spacing: .02em; }
+    html body { font-size: 16px; }
+    html body p, html body li, html body .mut, html body small, html body label { font-weight: 500; }
+    html body .logo b, html body .topbar h1, html body .hero h2, html body .page-heading h2, html body .section-title h3, html body .panel-head h3, html body .modal-header h3, html body .tr-hero .big, html body .tr-pr h2, html body #trainer h3, html body .orb b, html body .plan-title, html body .workout h3 {
+      font-family: 'SL Title', 'Orbitron', 'Rajdhani', sans-serif !important; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    html body .eyebrow, html body .nav, html body .nav span, html body .stat-box span, html body .metric span, html body .fuel span, html body .tr-tabs button, html body .sync, html body .tr-kv span, html body .tr-l {
+      font-family: 'Rajdhani', sans-serif !important; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+    html body .stat-box b, html body .metric b, html body .fuel b, html body .tr-kv b, html body .tr-ring b, html body .ux-timer, html body .orb span, html body .tr-pr b, html body #trainer .tr-modes button {
+      font-family: 'Orbitron', 'Rajdhani', sans-serif !important; font-weight: 700; letter-spacing: .04em; }
+    html body .topbar h1 { letter-spacing: .1em; text-shadow: 0 0 14px color-mix(in srgb, var(--pg, #00e5ff) 45%, transparent); }
+    html body .page-heading h2 { font-size: clamp(22px, 3.2vw, 34px); }
+    /* the System window look: thin glowing frame, slight letter glow */
+    html body .panel { box-shadow: inset 0 0 0 1px rgba(147,197,253,.06), 0 0 18px rgba(59,130,246,.10); }
+    html body .eyebrow { text-shadow: 0 0 8px currentColor; }
+  `;
+  document.head.appendChild(css);
+})();

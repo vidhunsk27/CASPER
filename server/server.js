@@ -146,7 +146,20 @@ app.use('/api', (req, res, next) => {
   res.status(401).json({ error: 'key required' });
 });
 // every new tab or app launch asks for the password again: pages carry a small check that signs out a window that was not opened by signing in
-const TAB_LOCK = `<script>(function(){try{var k='cxUnlocked';if(/[?&]u=1/.test(location.search)){sessionStorage.setItem(k,'1');history.replaceState(null,'',location.pathname+location.hash);}if(sessionStorage.getItem(k))return;var st=document.createElement('style');st.textContent='body>*:not(#cxLockMsg){display:none!important}';document.documentElement.appendChild(st);if(navigator.onLine){location.replace('/login?next='+encodeURIComponent(location.pathname));}else{document.addEventListener('DOMContentLoaded',function(){var d=document.createElement('div');d.id='cxLockMsg';d.style.cssText='position:fixed;inset:0;display:grid;place-items:center;background:#030508;color:#7dd3fc;font:600 15px system-ui;text-align:center;padding:24px;z-index:2147483647';d.textContent='Wally MK 3 is locked. Connect to the internet to sign in.';document.body.appendChild(d);});}}catch(e){}})();</script>`;
+const TAB_LOCK = `<script>(function(){try{var S=sessionStorage,L=localStorage,K='cxUnlocked',now=Date.now();
+var grace=function(){var v=L.getItem('cxLockGrace');return v===null||isNaN(+v)?0:+v;};
+var go=function(){S.removeItem(K);location.replace('/login?next='+encodeURIComponent(location.pathname));};
+if(/[?&]u=1/.test(location.search)){S.setItem(K,'1');history.replaceState(null,'',location.pathname+location.hash);}
+else if(S.getItem(K)){var left=+S.getItem('cxLeftAt')||0,keep=+S.getItem('cxKeep')||0;if(left&&now-left>4000&&!(keep&&now-keep<30000))S.removeItem(K);}
+S.removeItem('cxLeftAt');S.removeItem('cxKeep');
+if(!S.getItem(K)){var st=document.createElement('style');st.textContent='body>*:not(#cxLockMsg){display:none!important}';document.documentElement.appendChild(st);
+if(navigator.onLine){go();}else{document.addEventListener('DOMContentLoaded',function(){var d=document.createElement('div');d.id='cxLockMsg';d.style.cssText='position:fixed;inset:0;display:grid;place-items:center;background:#030508;color:#7dd3fc;font:600 15px system-ui;text-align:center;padding:24px;z-index:2147483647';d.textContent='Wally MK 3 is locked. Connect to the internet to sign in.';document.body.appendChild(d);});}return;}
+addEventListener('pagehide',function(){S.setItem('cxLeftAt',String(Date.now()));});
+var hid=0;document.addEventListener('visibilitychange',function(){if(document.hidden){hid=Date.now();return;}if(!hid)return;var away=Date.now()-hid;hid=0;var pk=+S.getItem('cxPicker')||0,own=+S.getItem('cxOwn')||0;
+if(pk&&Date.now()-pk<600000){S.removeItem('cxPicker');return;}if(own&&Date.now()-own<1800000){S.removeItem('cxOwn');return;}if(away>grace()*1000+800)go();});
+document.addEventListener('click',function(e){var t=e.target,l=t&&t.closest&&t.closest('label');if(t&&t.closest&&(t.closest('input[type=file]')||(l&&l.querySelector('input[type=file]'))))S.setItem('cxPicker',String(Date.now()));},true);
+var wo=window.open;window.open=function(u){try{if(new URL(u,location.href).origin===location.origin)S.setItem('cxOwn',String(Date.now()));}catch(e){}return wo.apply(window,arguments);};
+}catch(e){}})();</script>`;
 const PAGES = { '/': 'index.html', '/index.html': 'index.html', '/fitness/': 'fitness/index.html', '/fitness/index.html': 'fitness/index.html', '/fitness': 'fitness/index.html' };
 app.get(Object.keys(PAGES), (req, res, next) => { if (!gateOn() || !signedIn(req)) return next(); fs.readFile(path.join(__dirname, '..', PAGES[req.path]), 'utf8', (e, html) => { if (e) return next(); res.setHeader('Cache-Control', 'no-store'); res.type('html').send(html.replace(/<head[^>]*>/i, m => m + TAB_LOCK)); }); });
 // the sign-in page on its own address: a new window shows it even while another window is signed in (that one stays signed in)
