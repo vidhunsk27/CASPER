@@ -66,6 +66,7 @@ function withMemory(inner) {
   return {
     kind: inner.kind,
     async all(col) { return [...(await load(col)).values()]; },
+    async ids(col) { return [...(await load(col)).keys()]; },
     async get(col, id) { const v = (await load(col)).get(String(id)); return v === undefined ? null : v; },
     async set(col, id, val) { const m = await load(col); if (m.has(String(id)) && JSON.stringify(m.get(String(id))) === JSON.stringify(val)) return;   // nothing new: no write, no wake-up for other devices
       try { await inner.set(col, id, val); } catch (e) { delete mem[col]; throw e; } m.set(String(id), val); if (process.env.WALLY_DEBUG) console.log('SET', col, String(id).slice(0, 40)); announce(); },
@@ -80,10 +81,17 @@ const SELF_URL = process.env.KEEP_AWAKE === 'off' ? '' : (process.env.KEEP_AWAKE
 const app = express();
 app.use((req, res, next) => (process.env.SITE_GATE === 'off' || !(process.env.SITE_PASSWORD || KEY)) ? cors()(req, res, next) : next());   // with the sign-in page on, only this site may call its own API
 app.use(express.json({ limit: '8mb' }));
+const zlib = require('zlib');
+const sendFast = (req, res, obj) => { const raw = Buffer.from(JSON.stringify(obj)); res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); if (raw.length > 1400 && /\bgzip\b/.test(req.get('accept-encoding') || '')) { res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); return res.end(zlib.gzipSync(raw, { level: 6 })); } res.end(raw); };
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server error' }); });
 
 const AI = process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : '';
-app.get('/api/health', (req, res) => { const pub = { ok: true, time: Date.now(), gate: gateOn() }; if (gateOn() && !signedIn(req) && !hasKey(req)) return res.json(pub); res.json(Object.assign(pub, { store: store.kind, locked: !!KEY, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false })); });   // details only for you
+const VERSION = 'mk3-r15';
+// purge epoch: after a purge, anything older than this moment is refused, so a device that was offline cannot bring wiped data back
+let epoch = { at: 0, scope: '' };
+const epochLoaded = Promise.resolve().then(() => store.get('meta', 'epoch')).then(v => { if (v && v.at) epoch = v; }).catch(() => {});
+const stale = m => epoch.at && (+m || 0) < epoch.at;
+app.get('/api/health', (req, res) => { const pub = { ok: true, time: Date.now(), gate: gateOn(), version: VERSION, lock: 3 }; if (gateOn() && !signedIn(req) && !hasKey(req)) return res.json(pub); res.json(Object.assign(pub, { store: store.kind, locked: !!KEY, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false })); });   // details only for you
 // ---------------------------------------------------------------------------
 // password gate: nothing but the sign-in page is served until the password is given.
 //   SITE_PASSWORD  the password you type to open the site (falls back to WALLY_KEY when not set)
@@ -150,18 +158,18 @@ const TAB_LOCK = `<script>(function(){try{var S=sessionStorage,L=localStorage,K=
 var grace=function(){var v=L.getItem('cxLockGrace');return v===null||isNaN(+v)?0:+v;};
 var go=function(){S.removeItem(K);location.replace('/login?next='+encodeURIComponent(location.pathname));};
 if(/[?&]u=1/.test(location.search)){S.setItem(K,'1');history.replaceState(null,'',location.pathname+location.hash);}
-else if(S.getItem(K)){var left=+S.getItem('cxLeftAt')||0,keep=+S.getItem('cxKeep')||0;if(left&&now-left>4000&&!(keep&&now-keep<30000))S.removeItem(K);}
+else if(S.getItem(K)){var left=+S.getItem('cxLeftAt')||0,alive=+S.getItem('cxAlive')||0,keep=+S.getItem('cxKeep')||0,last=Math.max(left,alive);if(!(keep&&now-keep<30000)&&(!last||now-last>6000))S.removeItem(K);}
 S.removeItem('cxLeftAt');S.removeItem('cxKeep');
 if(!S.getItem(K)){var st=document.createElement('style');st.textContent='body>*:not(#cxLockMsg){display:none!important}';document.documentElement.appendChild(st);
 if(navigator.onLine){go();}else{document.addEventListener('DOMContentLoaded',function(){var d=document.createElement('div');d.id='cxLockMsg';d.style.cssText='position:fixed;inset:0;display:grid;place-items:center;background:#030508;color:#7dd3fc;font:600 15px system-ui;text-align:center;padding:24px;z-index:2147483647';d.textContent='Wally MK 3 is locked. Connect to the internet to sign in.';document.body.appendChild(d);});}return;}
-addEventListener('pagehide',function(){S.setItem('cxLeftAt',String(Date.now()));});
+window.__cxLock=3;var beat=function(){if(!document.hidden)S.setItem('cxAlive',String(Date.now()));};beat();setInterval(beat,2000);addEventListener('pagehide',function(){S.setItem('cxLeftAt',String(Date.now()));});addEventListener('pageshow',function(e){if(e.persisted){var a=+S.getItem('cxAlive')||0;if(Date.now()-a>6000+grace()*1000)go();}});
 var hid=0;document.addEventListener('visibilitychange',function(){if(document.hidden){hid=Date.now();return;}if(!hid)return;var away=Date.now()-hid;hid=0;var pk=+S.getItem('cxPicker')||0,own=+S.getItem('cxOwn')||0;
 if(pk&&Date.now()-pk<600000){S.removeItem('cxPicker');return;}if(own&&Date.now()-own<1800000){S.removeItem('cxOwn');return;}if(away>grace()*1000+800)go();});
 document.addEventListener('click',function(e){var t=e.target,l=t&&t.closest&&t.closest('label');if(t&&t.closest&&(t.closest('input[type=file]')||(l&&l.querySelector('input[type=file]'))))S.setItem('cxPicker',String(Date.now()));},true);
 var wo=window.open;window.open=function(u){try{if(new URL(u,location.href).origin===location.origin)S.setItem('cxOwn',String(Date.now()));}catch(e){}return wo.apply(window,arguments);};
 }catch(e){}})();</script>`;
 const PAGES = { '/': 'index.html', '/index.html': 'index.html', '/fitness/': 'fitness/index.html', '/fitness/index.html': 'fitness/index.html', '/fitness': 'fitness/index.html' };
-app.get(Object.keys(PAGES), (req, res, next) => { if (!gateOn() || !signedIn(req)) return next(); fs.readFile(path.join(__dirname, '..', PAGES[req.path]), 'utf8', (e, html) => { if (e) return next(); res.setHeader('Cache-Control', 'no-store'); res.type('html').send(html.replace(/<head[^>]*>/i, m => m + TAB_LOCK)); }); });
+app.get(Object.keys(PAGES), (req, res, next) => { if (!gateOn() || !signedIn(req)) return next(); fs.readFile(path.join(__dirname, '..', PAGES[req.path]), 'utf8', (e, html) => { if (e) return next(); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'text/html; charset=utf-8'); const body = Buffer.from(html.replace(/<head[^>]*>/i, m => m + TAB_LOCK)); if (/\bgzip\b/.test(req.get('accept-encoding') || '')) { res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); return res.end(zlib.gzipSync(body)); } res.end(body); }); });
 // the sign-in page on its own address: a new window shows it even while another window is signed in (that one stays signed in)
 const nextOf = v => /^\/(?!\/)[\w\-./]*$/.test(String(v || '')) ? String(v) : '/';
 app.get('/login', (req, res) => { if (!gateOn()) return res.redirect(302, '/'); res.setHeader('Cache-Control', 'no-store'); res.type('html').send(LOGIN('', nextOf(req.query.next))); });
@@ -173,7 +181,7 @@ app.use((req, res, next) => {
 });
 
 // live updates: /api/rev is a cheap "has anything changed" check, /api/events pushes the same number the moment it changes
-app.get('/api/rev', (req, res) => res.json({ boot: BOOT, rev, clients: listeners.size }));
+app.get('/api/rev', (req, res) => res.json({ boot: BOOT, rev, clients: listeners.size, epoch: epoch.at, scope: epoch.scope }));
 app.get('/api/events', (req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.write('retry: 4000\n\ndata: ' + BOOT + ':' + rev + '\n\n'); listeners.add(res);
@@ -181,18 +189,57 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { clearInterval(beat); listeners.delete(res); });
 });
 
+// ---------------------------------------------------------------------------
+// one-trip sync: everything a device needs in a single request, and everything it changed in a single request.
+// Fewer round trips matters most when the server is far away (each trip from India to a US server is ~250 ms).
+// ---------------------------------------------------------------------------
+app.get('/api/sync', wrap(async (req, res) => {
+  await epochLoaded; const [tx, wish, del, inbox, st] = await Promise.all([store.all('transactions'), store.all('wishlist'), store.all('deleted'), store.all('inbox'), store.all('state')]);
+  const state = {}; st.forEach(e => { if (e && e.k) state[e.k] = { v: e.v, t: e.t }; });
+  sendFast(req, res, { v: 2, tx, wish, deleted: { tx: del.filter(d => d.kind === 'tx').map(d => d.id), wish: del.filter(d => d.kind === 'wish').map(d => d.id) }, inbox: inbox.sort((a, b) => a.at - b.at), state, rev: BOOT + ':' + rev, epoch });
+}));
+app.post('/api/sync', wrap(async (req, res) => {
+  await epochLoaded; const b = req.body || {}, out = { tx: 0, wish: 0, del: 0, state: 0, ack: 0, skipped: 0 };
+  for (const t of (b.tx || []).slice(0, 2000)) { if (!t || t.id == null) continue; if (stale(t._m) && epoch.scope !== 'wish') { out.skipped++; continue; } if (await isGone('tx', String(t.id))) { out.skipped++; continue; } await store.set('transactions', String(t.id), t); out.tx++; }
+  for (const w of (b.wish || []).slice(0, 1000)) { if (!w || w.id == null) continue; if (stale(w._m) && epoch.scope === 'all') { out.skipped++; continue; } if (await isGone('wish', String(w.id))) { out.skipped++; continue; } await store.set('wishlist', String(w.id), w); out.wish++; }
+  for (const id of ((b.del || {}).tx || [])) { await store.del('transactions', String(id)); if (!(await isGone('tx', String(id)))) await store.set('deleted', 'tx:' + id, { kind: 'tx', id: String(id), at: Date.now() }); out.del++; }
+  for (const id of ((b.del || {}).wish || [])) { await store.del('wishlist', String(id)); if (!(await isGone('wish', String(id)))) await store.set('deleted', 'wish:' + id, { kind: 'wish', id: String(id), at: Date.now() }); out.del++; }
+  for (const id of ((b.undelete || {}).tx || [])) await store.del('deleted', 'tx:' + id);
+  for (const id of ((b.undelete || {}).wish || [])) await store.del('deleted', 'wish:' + id);
+  const stIn = b.state || {}; for (const k of Object.keys(stIn)) { const cur = await store.get('state', k), inc = stIn[k]; if (!inc || typeof inc.v !== 'string') continue; if (epoch.scope === 'all' && stale(inc.t)) { out.skipped++; continue; } if (!cur || (inc.t || 0) >= (cur.t || 0)) { await store.set('state', k, { k, v: inc.v, t: inc.t || Date.now() }); out.state++; } }
+  for (const id of (b.ack || [])) { await store.del('inbox', String(id)); out.ack++; }
+  res.json(Object.assign(out, { success: true, rev: BOOT + ':' + rev }));
+}));
+// purge: wipes the chosen data on the server and tells every device to wipe its copy too
+app.post('/api/purge', wrap(async (req, res) => {
+  if (!signedIn(req) && !hasKey(req)) return res.status(401).json({ error: 'Sign in first.' });
+  if (gateOn() && !checkPass((req.body || {}).password)) return res.status(403).json({ error: 'The password is not right.' });
+  const scope = (req.body || {}).scope === 'ledger' ? 'ledger' : 'all', cols = scope === 'ledger' ? ['transactions'] : ['transactions', 'wishlist', 'state', 'inbox', 'deleted'];
+  let n = 0; for (const c of cols) { for (const id of await store.ids(c)) { await store.del(c, id); n++; } }
+  if (scope === 'ledger') { for (const id of await store.ids('deleted')) if (String(id).indexOf('tx:') === 0) { await store.del('deleted', id); n++; } }
+  else await store.del('meta', 'workspace').catch(() => {});
+  epoch = { at: Date.now(), scope }; await store.set('meta', 'epoch', epoch); console.log('Purge (' + scope + '): removed ' + n + ' records');
+  res.json({ success: true, removed: n, epoch });
+}));
+// self-check: measures the database round trip from the server, for the in-app diagnostics
+app.get('/api/selftest', wrap(async (req, res) => {
+  const t0 = Date.now(), id = 'selftest'; let ok = false, err = '';
+  try { await store.set('meta', id, { at: t0 }); const v = await store.get('meta', id); ok = !!v && v.at === t0; await store.del('meta', id); } catch (e) { err = e.message; }
+  res.json({ ok, err, dbMs: Date.now() - t0, store: store.kind, version: VERSION, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false, gate: gateOn(), epoch, capture: !!CAPTURE });
+}));
+
 // ledger
 app.get('/api/get-transactions', wrap(async (req, res) => res.json(await store.all('transactions'))));
 // a deleted item is remembered, so another device that still holds it cannot quietly put it back
 const isGone = async (kind, id) => !!(await store.get('deleted', kind + ':' + id));
-app.post('/api/add-transaction', wrap(async (req, res) => { const t = req.body || {}; if (t.id == null) return res.status(400).json({ error: 'id missing' }); if (await isGone('tx', String(t.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('transactions', String(t.id), t); res.json({ success: true }); }));
+app.post('/api/add-transaction', wrap(async (req, res) => { const t = req.body || {}; if (t.id == null) return res.status(400).json({ error: 'id missing' }); await epochLoaded; if (stale(t._m) && (epoch.scope !== 'wish')) return res.json({ success: true, skipped: 'purged' }); if (await isGone('tx', String(t.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('transactions', String(t.id), t); res.json({ success: true }); }));
 app.delete('/api/delete-transaction/:id', wrap(async (req, res) => { await store.del('transactions', req.params.id); if (!(await isGone('tx', req.params.id))) await store.set('deleted', 'tx:' + req.params.id, { kind: 'tx', id: req.params.id, at: Date.now() }); res.json({ success: true }); }));
 app.get('/api/deleted', wrap(async (req, res) => { const all = await store.all('deleted'); res.json({ tx: all.filter(d => d.kind === 'tx').map(d => d.id), wish: all.filter(d => d.kind === 'wish').map(d => d.id) }); }));
 app.post('/api/undelete', wrap(async (req, res) => { for (const id of (req.body.tx || [])) await store.del('deleted', 'tx:' + id); for (const id of (req.body.wish || [])) await store.del('deleted', 'wish:' + id); res.json({ success: true }); }));
 
 // wishlist + library share one list (library items carry isMedia: true)
 app.get('/api/get-wishlist', wrap(async (req, res) => res.json(await store.all('wishlist'))));
-app.post('/api/add-wishlist', wrap(async (req, res) => { const w = req.body || {}; if (w.id == null) return res.status(400).json({ error: 'id missing' }); if (await isGone('wish', String(w.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('wishlist', String(w.id), w); res.json({ success: true }); }));
+app.post('/api/add-wishlist', wrap(async (req, res) => { const w = req.body || {}; if (w.id == null) return res.status(400).json({ error: 'id missing' }); await epochLoaded; if (stale(w._m) && epoch.scope === 'all') return res.json({ success: true, skipped: 'purged' }); if (await isGone('wish', String(w.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('wishlist', String(w.id), w); res.json({ success: true }); }));
 app.delete('/api/delete-wishlist/:id', wrap(async (req, res) => { await store.del('wishlist', req.params.id); if (!(await isGone('wish', req.params.id))) await store.set('deleted', 'wish:' + req.params.id, { kind: 'wish', id: req.params.id, at: Date.now() }); res.json({ success: true }); }));
 
 // workspace
@@ -203,12 +250,12 @@ app.post('/api/save-workspace', wrap(async (req, res) => { await store.set('meta
 app.get('/api/state', wrap(async (req, res) => { const out = {}; (await store.all('state')).forEach(e => { out[e.k] = { v: e.v, t: e.t }; }); res.json(out); }));
 app.put('/api/state', wrap(async (req, res) => {
   const body = req.body || {}; let n = 0;
-  for (const k of Object.keys(body)) { const cur = await store.get('state', k), inc = body[k]; if (!inc || typeof inc.v !== 'string') continue; if (!cur || (inc.t || 0) >= (cur.t || 0)) { await store.set('state', k, { k, v: inc.v, t: inc.t || Date.now() }); n++; } }
+  await epochLoaded; for (const k of Object.keys(body)) { const cur = await store.get('state', k), inc = body[k]; if (!inc || typeof inc.v !== 'string') continue; if (epoch.scope === 'all' && stale(inc.t)) continue; if (!cur || (inc.t || 0) >= (cur.t || 0)) { await store.set('state', k, { k, v: inc.v, t: inc.t || Date.now() }); n++; } }
   res.json({ success: true, written: n });
 }));
 
 // bank SMS drop-box: the phone posts here, the app collects and files them
-const smsIn = wrap(async (req, res) => { const text = String((req.body && (req.body.text || req.body.sms || req.body.message)) || req.query.text || '').slice(0, 2000); if (text.trim().length < 12) return res.status(400).json({ error: 'text missing' }); const id = Date.now() + '_' + Math.random().toString(36).slice(2, 8); await store.set('inbox', id, { id, text, at: Date.now() }); res.json({ success: true, id }); });
+const smsIn = wrap(async (req, res) => { const text = String((req.body && (req.body.text || req.body.sms || req.body.message)) || req.query.text || '').slice(0, 2000); if (text.trim().length < 12) return res.status(400).json({ error: 'text missing' }); if (req.query.dry === '1' || (req.body && req.body.dry)) return res.json({ success: true, dry: true }); const id = Date.now() + '_' + Math.random().toString(36).slice(2, 8); await store.set('inbox', id, { id, text, at: Date.now() }); res.json({ success: true, id }); });
 app.post('/api/sms', smsIn); app.get('/api/sms', smsIn);
 app.get('/api/sms-inbox', wrap(async (req, res) => res.json((await store.all('inbox')).sort((a, b) => a.at - b.at))));
 app.post('/api/sms-ack', wrap(async (req, res) => { for (const id of (req.body.ids || [])) await store.del('inbox', String(id)); res.json({ success: true }); }));
@@ -342,6 +389,18 @@ app.post('/api/ai', wrap(async (req, res) => {
 // ----------------------------------------------------------------------------- the app itself
 const ROOT = path.join(__dirname, '..');
 app.use((req, res, next) => { if (/^\/(server|node_modules|\.git)(\/|$)/.test(req.path) || /\.(env|md)$/i.test(req.path)) return res.status(404).end(); next(); });
+// compressed copies of the app files (app.js shrinks from ~700 KB to ~150 KB), kept in memory and revalidated by date
+const gz = new Map();
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next(); if (!/\bgzip\b/.test(req.get('accept-encoding') || '')) return next();
+  let p = decodeURIComponent(req.path); if (p.endsWith('/')) p += 'index.html'; if (!/\.(js|css|html|json|svg|txt|md)$/i.test(p)) return next();
+  const file = path.join(ROOT, p); if (file.indexOf(ROOT) !== 0) return next();
+  fs.stat(file, (e, st) => { if (e || !st.isFile()) return next(); const tag = 'W/"' + st.size.toString(36) + '-' + st.mtimeMs.toString(36) + '-gz"';
+    if (req.get('if-none-match') === tag) return res.status(304).end();
+    let c = gz.get(file); if (!c || c.m !== st.mtimeMs) { try { c = { m: st.mtimeMs, b: zlib.gzipSync(fs.readFileSync(file), { level: 9 }) }; gz.set(file, c); } catch (x) { return next(); } }
+    const types = { js: 'text/javascript', css: 'text/css', html: 'text/html', json: 'application/json', svg: 'image/svg+xml', txt: 'text/plain', md: 'text/plain' };
+    res.setHeader('Content-Type', types[p.split('.').pop().toLowerCase()] + '; charset=utf-8'); res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); res.setHeader('ETag', tag); res.setHeader('Cache-Control', 'no-cache'); res.end(req.method === 'HEAD' ? undefined : c.b); });
+});
 app.use(express.static(ROOT, { extensions: ['html'] }));
 
 app.listen(PORT, () => console.log(`Wally MK 3 server on port ${PORT} • storage: ${store.kind} • ${process.env.SITE_GATE === 'off' ? 'sign-in page off' : PASS ? 'password gate on' + (process.env.SITE_PASSWORD ? ' (SITE_PASSWORD)' : ' (using WALLY_KEY as the password)') : 'NO PASSWORD OR KEY SET (open to anyone who has the link)'}`));

@@ -215,3 +215,23 @@ Limits worth knowing: anyone using your unlocked, signed-in device sees everythi
 ## AI trainer (LEVEL//UP → AI Trainer)
 
 Uses the same AI key as the chat. Without a key it still works with built-in rules: a plan builder, an Indian food list and offline coach answers. Photo food logging needs the AI. Everything it stores (profile, plan, logs, coach memory) is kept inside the fitness data, so it syncs between your devices like the rest.
+
+## Purging data (a real clean slate)
+Dashboard → red bin above the ledger, or shield → **Purge data…**. Choose **Ledger only** or **Everything**, type PURGE and your sign-in password.
+- The server copy is deleted at once, and a "purge moment" is stored in the database.
+- Every other device wipes itself the next time it syncs (within seconds if it is open). A device that was offline cannot bring the old data back: the server refuses anything older than the purge moment.
+- The built-in sample ledger is never loaded again after a purge.
+- Your password, keys, weather place and pictures are kept. Tick "Download a full backup first" if you want a safety copy.
+
+## Self-check
+Dashboard → **✓ Self-check** (right end of the section bar), or shield → **Run a full self-check**. It tests the server and its version, the password gate, the database (write and read), keep-awake, sync, the live line, the capture key, the bookmark route, the SMS drop-box (a dry run, nothing stored), the SMS reader, the link reader, weather, the price relay, notifications, offline copy and storage. **Include AI** also sends one test question to Gemini. Each failed line says what to fix.
+
+## How the capture tools work
+- **Capture bookmark (wishlist / library):** drag it from shield → Capture to your bookmarks bar. On a shop page, tap it: it reads the title, price and picture from the page you are on (inside your browser, so shops cannot block it) and sends them to your server with your capture key. Every device gets the item through sync. On a phone, add it as a bookmark and pick it from the bookmarks list while on the product page.
+- **Link reader ("scraper"):** paste a link in Wishlist or Library. The server fetches the page and pulls the title, price and image. Large shops (Amazon, Flipkart) often block servers, so if it comes back empty use the capture bookmark, which always works.
+- **Auto SMS reader:** the phone posts each bank message to `https://YOUR-SITE/api/sms?key=CAPTURE-KEY` (Android: an SMS-forwarder or Tasker/MacroDroid "HTTP POST" with the message as `text`; iPhone: a Shortcuts automation on "Message received"). The server holds them; the first open device files each one into the ledger (amount, in or out, who with, date, category) and clears it from the box. OTPs, offers, "will be debited" reminders and balance-only messages are ignored, and repeats are recognised. The exact address and key are under shield → Cloud.
+
+## Making it faster (latency)
+- Sync now takes one trip each way, and app files are sent compressed and only re-sent when they change.
+- The biggest remaining delay is distance. Render's free services in **Oregon/Ohio** add about 250 ms per trip from India; a service in **Singapore** cuts that to about 60–90 ms. Render cannot move an existing service: create a new Web Service from the same repo, pick region Singapore, copy the same environment settings, and use its new address. Your data lives in Firestore, so nothing is lost.
+- Keep-awake (automatic on Render) stops the 30–60 s cold start.

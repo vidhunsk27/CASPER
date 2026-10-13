@@ -4737,7 +4737,9 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     const seen = () => getJ('walletSmsSeen', []);
     function isDup(p) { return seen().includes(p.key) || transactions.some(tx => tx.type === p.type && Math.abs(tx.amount - p.amount) < 0.01 && Math.abs(tx.timestamp - p.ts) < 180000 && (tx.note || '') === p.note); }
     function addEntry(p, source) {
-        const tx = { id: String(Date.now() + Math.floor(Math.random() * 10000)), type: p.type, amount: p.amount, account: p.account || 'UPI', category: p.category || 'Other', note: p.note || '', timestamp: p.ts || Date.now(), isRecurring: false, source };
+        const fixed = typeof window.__cxSmsNext === 'function' ? window.__cxSmsNext() : '';     // phone SMS: the same id on every device, so two devices collecting one message cannot double it
+        if (fixed) { const had = transactions.find(t => String(t.id) === fixed); if (had) return had; }
+        const tx = { id: fixed || String(Date.now() + Math.floor(Math.random() * 10000)), type: p.type, amount: p.amount, account: p.account || 'UPI', category: p.category || 'Other', note: p.note || '', timestamp: p.ts || Date.now(), isRecurring: false, source };
         transactions.push(tx); saveTransactionsLocally();
         if (p.key) { const s = seen(); s.push(p.key); setJ('walletSmsSeen', s.slice(-400)); }
         const log = getJ('walletCaptureLog', []); log.unshift({ at: Date.now(), id: tx.id, type: tx.type, amount: tx.amount, note: tx.note, source }); setJ('walletCaptureLog', log.slice(0, 40));
@@ -5730,62 +5732,88 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     }
     const noM = x => { const c = Object.assign({}, x); delete c._m; return c; };
 
+    // wipe this device after a purge (on any device). scope 'ledger' clears the ledger only; 'all' clears every app record.
+    function wipeLocal(scope) {
+        window.__cxHold = true;                                               // no sync may run again before the reload: it would push the old copy back
+        try { transactions = []; if (scope !== 'ledger') { wishlistItems = []; mediaItems = []; } } catch (e) {}
+        const keep = new Set(['walletCloudLinked', 'cxCaptureKey', 'cxLockGrace', 'cxWx', 'cxWxLoc', 'cxEpoch', 'walletCloudKey', 'walletIntroHidden', 'walletIntroChosen', 'walletArt', 'walletNotif']);
+        const kill = scope === 'ledger' ? [TXK, 'walletDeleted'] : Object.keys(localStorage).filter(k => !keep.has(k) && (tracked(k) || /^(cx(MT|ItemMT|Item)|workspaceHistory|keepNotes|levelup_|walletWbLocal)/.test(k)));
+        kill.forEach(k => rawRemove.call(localStorage, k));
+        if (scope === 'ledger') { rawSet.call(localStorage, TXK, '[]'); try { const m = JSON.parse(localStorage.getItem('cxItemMT') || 'null'); if (m) { m.tx = {}; Object.keys(m.h).forEach(k => { if (k[0] === 't') delete m.h[k]; }); rawSet.call(localStorage, 'cxItemMT', JSON.stringify(m)); } } catch (e) {} }
+        else rawSet.call(localStorage, TXK, '[]');
+        rawSet.call(localStorage, 'walletNoSeed', '1');                      // the built-in sample ledger is not loaded again
+    }
+    window.__cxWipe = wipeLocal;
     async function syncNow(manual) {
-        if (syncNow.busy) return; syncNow.busy = true;
+        if (syncNow.busy || window.__cxHold) return; syncNow.busy = true;
         try {
-            live.sent = 0; live.startRev = ''; try { const r0 = await api('/rev'); if (r0.ok) { const j0 = await r0.json(); live.startRev = j0.boot + ':' + j0.rev; } } catch (e) {}
-            if (!(await health())) { if (manual) toast('No server is reachable, sir. Your data is safe on this device.', true); return; }
-            const [tr, wr] = await Promise.all([api('/get-transactions'), api('/get-wishlist')]);
-            if (tr.status === 401) { cloud.state = 'locked'; if (manual) toast('The server needs your key. Enter it under System → Cloud.', true); return; }
-            if (!tr.ok || !wr.ok) throw new Error('bad response');
-            const rawTx = await tr.json() || [], sMtT = {}, sMtW = {}; rawTx.forEach(x => { sMtT[String(x.id)] = +x._m || 0; });
-            const t = tomb(), sTx = rawTx.map(normalizeTransaction), sW = await wr.json() || []; sW.forEach(x => { sMtW[String(x.id)] = +x._m || 0; });
-            const im = stampItems()[0];
-            // forget tombstones for anything that is back in the local lists (restored on purpose)
+            live.sent = 0; live.startRev = ''; live.rev = '';
+            // one trip for everything (new server); the older multi-call route stays as a fallback
+            let one = null, r1;
+            try { r1 = await api('/sync'); } catch (e) { cloud.state = 'offline'; if (manual) toast('No server is reachable, sir. Your data is safe on this device.', true); return; }
+            if (r1.status === 401) { cloud.state = 'locked'; if (manual) toast('The server needs your key or a fresh sign-in.', true); return; }
+            if (r1.ok) one = await r1.json().catch(() => null);
+            if (!one) { if (!(await health())) { if (manual) toast('No server is reachable, sir. Your data is safe on this device.', true); return; } }
+            if (one && one.epoch && one.epoch.at > (+localStorage.getItem('cxEpoch') || 0)) {          // a purge happened (here or on another device)
+                const first = !localStorage.getItem('cxEpoch'); wipeLocal(one.epoch.scope); rawSet.call(localStorage, 'cxEpoch', String(one.epoch.at));
+                if (!first || transactions.length || wishlistItems.length) { sessionStorage.setItem('cxKeep', String(Date.now())); toast('Your data was purged, sir. Starting fresh.'); setTimeout(() => location.reload(), 700); return; }
+            }
+            let rawTx, sW, gone, box, sv;
+            if (one) { rawTx = one.tx || []; sW = one.wish || []; gone = one.deleted || { tx: [], wish: [] }; box = one.inbox || []; sv = one.state || {}; live.startRev = one.rev; }
+            else {
+                const [tr, wr, dr, ir, sr] = await Promise.all([api('/get-transactions'), api('/get-wishlist'), api('/deleted'), api('/sms-inbox'), api('/state')]);
+                if (tr.status === 401) { cloud.state = 'locked'; if (manual) toast('The server needs your key. Enter it under System → Cloud.', true); return; }
+                if (!tr.ok || !wr.ok) throw new Error('bad response');
+                rawTx = await tr.json() || []; sW = await wr.json() || []; gone = dr.ok ? await dr.json() : { tx: [], wish: [] }; box = ir.ok ? await ir.json() : []; sv = sr.ok ? await sr.json() : null;
+            }
+            const sMtT = {}, sMtW = {}; rawTx.forEach(x => { sMtT[String(x.id)] = +x._m || 0; }); sW.forEach(x => { sMtW[String(x.id)] = +x._m || 0; });
+            const t = tomb(), sTx = rawTx.map(normalizeTransaction), im = stampItems()[0];
             const localIds = new Set(transactions.map(x => String(x.id))), localW = new Set(wishlistItems.concat(mediaItems).map(x => String(x.id)));
             const back = { tx: t.tx.filter(id => localIds.has(id)), wish: t.wish.filter(id => localW.has(id)) };              // restored here with Undo
             t.tx = t.tx.filter(id => !localIds.has(id)); t.wish = t.wish.filter(id => !localW.has(id));
-            if (back.tx.length || back.wish.length) await api('/undelete', { method: 'POST', body: JSON.stringify(back) });
-            // deletions made on your other devices
-            const dr = await api('/deleted'), gone = dr.ok ? await dr.json() : { tx: [], wish: [] }, goneTx = new Set(gone.tx || []), goneW = new Set(gone.wish || []);
+            const goneTx = new Set((gone.tx || []).filter(id => !back.tx.includes(id))), goneW = new Set((gone.wish || []).filter(id => !back.wish.includes(id)));
             if (transactions.some(x => goneTx.has(String(x.id))) || wishlistItems.concat(mediaItems).some(x => goneW.has(String(x.id)))) {
                 await snapshot('Before applying deletions from another device').catch(() => {});
                 transactions = transactions.filter(x => !goneTx.has(String(x.id))); wishlistItems = wishlistItems.filter(x => !goneW.has(String(x.id))); mediaItems = mediaItems.filter(x => !goneW.has(String(x.id)));
             }
-            // ledger: union of both sides, minus what you deleted; where both hold the same entry the newer edit wins
-            const mT = mergeStamped(transactions, sTx.filter(x => !t.tx.includes(String(x.id))), sMtT, im.tx), pushTx = mT.push;
+            const mT = mergeStamped(transactions, sTx.filter(x => !t.tx.includes(String(x.id)) && !goneTx.has(String(x.id))), sMtT, im.tx), pushTx = mT.push;
             const merged = mT.out.map(normalizeTransaction).filter(x => Number.isFinite(x.amount) && x.timestamp);
-            const before = transactions.length, gotItems = mT.got; transactions = merged;
-            // wishlist + library: same rule
+            const gotItems = mT.got; transactions = merged;
             const lw = wishlistItems.concat(mediaItems.map(m => Object.assign({}, m, { isMedia: true })));
-            const mW = mergeStamped(lw, sW.filter(x => !t.wish.includes(String(x.id))), sMtW, im.w, noM), all = mW.out, pushW = mW.push;
+            const mW = mergeStamped(lw, sW.filter(x => !t.wish.includes(String(x.id)) && !goneW.has(String(x.id))), sMtW, im.w, noM), all = mW.out, pushW = mW.push;
             wishlistItems = all.filter(w => !w.isMedia); mediaItems = all.filter(w => w.isMedia);
             rebase(im); saveTransactionsLocally(); saveWishlistLocally(); saveMediaLocally();
-            const delTx = t.tx.filter(id => !goneTx.has(id)), delW = t.wish.filter(id => !goneW.has(id));           // only deletions the server has not heard about yet
-            live.sent = pushTx.length + pushW.length + delTx.length + delW.length;
-            for (const x of pushTx.slice(0, 400)) await api('/add-transaction', { method: 'POST', body: JSON.stringify(x) });
-            for (const x of pushW.slice(0, 200)) await api('/add-wishlist', { method: 'POST', body: JSON.stringify(x) });
-            for (const id of delTx) await api('/delete-transaction/' + encodeURIComponent(id), { method: 'DELETE' });
-            for (const id of delW) await api('/delete-wishlist/' + encodeURIComponent(id), { method: 'DELETE' });
-            setJ('walletDeleted', t);
+            const delTx = t.tx.filter(id => !goneTx.has(id)), delW = t.wish.filter(id => !goneW.has(id));
             // bank messages your phone posted to the server
-            const ir = await api('/sms-inbox'); let cap = 0;
-            if (ir.ok) { const box = await ir.json(); if (box.length) { box.forEach(m => { const r = window.CXSms.ingest(m.text, 'phone SMS'); cap += r.added.length; }); await api('/sms-ack', { method: 'POST', body: JSON.stringify({ ids: box.map(m => m.id) }) }); } }
+            let cap = 0; const ack = []; if (box && box.length) { box.forEach(m => { let n = 0; window.__cxSmsNext = () => 'sms-' + m.id + (n++ ? '-' + n : ''); const before = transactions.length; try { window.CXSms.ingest(m.text, 'phone SMS'); } finally { window.__cxSmsNext = null; } cap += Math.max(0, transactions.length - before); ack.push(m.id); }); }
             // everything else: newest change wins per item; the very first link on a device never overwrites the server
-            const sr = await api('/state'), first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0;
-            if (sr.ok) {
-                const sv = await sr.json(), mt = MT(), push = {};
+            const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0; const push = {};
+            if (sv) {
+                const mt = MT();
                 new Set(Object.keys(sv).concat(Object.keys(localStorage).filter(synced))).forEach(k => {
                     if (!synced(k)) return; const lv = localStorage.getItem(k), lt = mt[k] || (lv !== null ? 1 : 0), s = sv[k];
-                    if (s && typeof s.v === 'string' && (s.t > lt || (first && lv !== s.v)) ) { if (lv !== s.v) { rawSet.call(localStorage, k, s.v); pulled++; } mt[k] = s.t; }
+                    if (s && typeof s.v === 'string' && (s.t > lt || (first && lv !== s.v))) { if (lv !== s.v) { rawSet.call(localStorage, k, s.v); pulled++; } mt[k] = s.t; }
                     else if (lv !== null && (!s || lt > s.t) && lv.length < 900000) { push[k] = { v: lv, t: lt > 1 ? lt : Date.now() }; mt[k] = push[k].t; pushed++; }
                 });
                 rawSet.call(localStorage, 'cxMT', JSON.stringify(mt));
-                live.sent += pushed;
-                if (pushed) await api('/state', { method: 'PUT', body: JSON.stringify(push) });
-                rawSet.call(localStorage, 'walletCloudLinked', '1');
             }
-            cloud.state = 'online'; cloud.last = Date.now(); cloud.note = `${merged.length} ledger entries • sent ${pushTx.length + pushW.length + pushed} • received ${gotItems + mW.got + pulled + cap}`;
+            live.sent = pushTx.length + pushW.length + delTx.length + delW.length + pushed + ack.length;
+            if (one) {
+                if (live.sent || back.tx.length || back.wish.length) { const pr = await api('/sync', { method: 'POST', body: JSON.stringify({ tx: pushTx.slice(0, 2000), wish: pushW.slice(0, 1000), del: { tx: delTx, wish: delW }, undelete: back, state: push, ack }) }); if (pr.ok) { const j = await pr.json(); live.rev = j.rev; } else throw new Error('push failed'); }
+                else live.rev = one.rev;
+            } else {
+                if (back.tx.length || back.wish.length) await api('/undelete', { method: 'POST', body: JSON.stringify(back) });
+                for (const x of pushTx.slice(0, 400)) await api('/add-transaction', { method: 'POST', body: JSON.stringify(x) });
+                for (const x of pushW.slice(0, 200)) await api('/add-wishlist', { method: 'POST', body: JSON.stringify(x) });
+                for (const id of delTx) await api('/delete-transaction/' + encodeURIComponent(id), { method: 'DELETE' });
+                for (const id of delW) await api('/delete-wishlist/' + encodeURIComponent(id), { method: 'DELETE' });
+                if (ack.length) await api('/sms-ack', { method: 'POST', body: JSON.stringify({ ids: ack }) });
+                if (pushed) await api('/state', { method: 'PUT', body: JSON.stringify(push) });
+            }
+            setJ('walletDeleted', t);
+            if (sv) rawSet.call(localStorage, 'walletCloudLinked', '1');
+            if (one && one.epoch && !localStorage.getItem('cxEpoch')) rawSet.call(localStorage, 'cxEpoch', String(one.epoch.at || 0));
+            cloud.state = 'online'; cloud.last = Date.now(); cloud.note = `${merged.length} ledger entries • sent ${live.sent} • received ${gotItems + mW.got + pulled + cap}`;
             try { updateUI(); renderWishlist(); renderMedia(); } catch (e) {}
             if (cap) toast(`${cap} bank message${cap > 1 ? 's' : ''} from your phone added to the ledger, sir.`);
             if (pulled) {                                                           // settings-type data changed elsewhere: reload quietly when it will not interrupt you
@@ -5796,7 +5824,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             }
             else if (manual) toast('Synced with your server, sir. ' + cloud.note);
         } catch (e) { cloud.state = 'error'; if (manual) toast('Sync did not finish. Nothing was changed on this device.', true); console.warn('sync', e); }
-        finally { syncNow.busy = false; paintStatus(); try { const r = await api('/rev'); if (r.ok) { const j = await r.json(), now = j.boot + ':' + j.rev; if (live.startRev && live.sent === 0 && now !== live.startRev) syncNow.again = true; live.rev = now; live.ok = true; } else if (r.status === 404) live.ok = false; } catch (e) {} try { if (live.recheck) { live.recheck = false; if (stampItems()[1]) syncNow.again = true; } } catch (e) {} if (syncNow.again && (live.chain = (live.chain || 0) + 1) <= 4) { syncNow.again = false; setTimeout(() => syncNow(false), 250); } else { syncNow.again = false; live.chain = 0; } }
+        finally { syncNow.busy = false; paintStatus(); live.ok = live.ok === false ? false : true; if (!live.rev) { try { const r = await api('/rev'); if (r.ok) { const j = await r.json(); live.rev = j.boot + ':' + j.rev; } else if (r.status === 404) live.ok = false; } catch (e) {} } try { if (live.recheck) { live.recheck = false; if (stampItems()[1]) syncNow.again = true; } } catch (e) {} if (syncNow.again && (live.chain = (live.chain || 0) + 1) <= 4) { syncNow.again = false; setTimeout(() => syncNow(false), 250); } else { syncNow.again = false; live.chain = 0; } }
     }
     window.syncDataFromServer = async function () { try { updateUI(); renderWishlist(); renderMedia(); } catch (e) {} await syncNow(false); try { updateUI(); } catch (e) {} };
 
@@ -7236,6 +7264,208 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         addEventListener('storage', e => { if (e.key === 'levelup_home_v7') safe(upNext); });
         new MutationObserver(() => safe(captureInfo)).observe(document.body, { childList: true });
         const sw = window.switchMainView; window.switchMainView = function () { const r = sw.apply(this, arguments); setTimeout(() => safe(countUp), 60); return r; };
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 15 (appended; nothing above is changed)
+   1 real purge: wipes this device, the server and every other device; the sample ledger never comes back
+   2 self-check: tests server, database, sync, live link, capture key, bookmarks, SMS reader, scraper, AI, weather
+   3 dashboard: section jump bar, month at a glance, subscriptions, unusual spending, cash trend
+   4 lock fallback for pages served without the server's window lock
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, esc, inr, getJ, toast, icons, mKey } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v13', e); } };
+
+    // ==========================================================================
+    // 1. PURGE
+    // ==========================================================================
+    // the original app reloads its built-in sample ledger whenever the ledger is empty; after a purge it must not
+    const fc = window.forceCleanSystemState;
+    if (typeof fc === 'function') window.forceCleanSystemState = function () {
+        const r = fc.apply(this, arguments);
+        try { if (localStorage.getItem('walletNoSeed') === '1' && typeof seedTransactions !== 'undefined') { const seed = new Set(seedTransactions.map(t => String(t.id))); if (transactions.length && transactions.every(t => seed.has(String(t.id)))) { transactions = []; localStorage.setItem('walletTransactionsBackupV2', '[]'); } } } catch (e) {}
+        return r;
+    };
+    function purgeModal() {
+        const old = $('cx13Purge'); if (old) old.remove();
+        document.body.insertAdjacentHTML('beforeend', `<div class="cx-modal" id="cx13Purge"><div style="width:min(520px,100%)"><h3><span style="color:#f87171">Purge data</span><button class="cx-btn red sm" onclick="document.getElementById('cx13Purge').remove()">Close</button></h3>
+            <p style="font-size:13px;color:#cbd5e1;line-height:1.6">This deletes the data on <b class="text-white">this device, your server and every other device</b> the next time each one opens the app. Devices that were offline cannot bring it back.</p>
+            <label class="cx-row" style="cursor:pointer;margin-top:12px"><input type="radio" name="cx13Scope" value="ledger" class="form-check"><span class="flex-1"><b class="text-sm text-white">Ledger only</b><br><span style="font-size:12px;color:#94a3b8">All income and expense entries. Wishlist, library, planner, growth, fitness and notes stay.</span></span></label>
+            <label class="cx-row" style="cursor:pointer;margin-top:8px"><input type="radio" name="cx13Scope" value="all" class="form-check" checked><span class="flex-1"><b class="text-sm text-white">Everything</b><br><span style="font-size:12px;color:#94a3b8">Ledger, wishlist, library, planner, habits, growth, LEVEL//UP fitness and AI trainer, notes and sketches. Your password, keys and pictures stay.</span></span></label>
+            <label class="cx-row" style="cursor:pointer;margin-top:8px"><input type="checkbox" id="cx13Snaps" class="form-check" checked><span class="text-sm text-gray-200 flex-1">Also delete the saved copies on this device (Data vault)</span></label>
+            <label class="cx-row" style="cursor:pointer;margin-top:8px"><input type="checkbox" id="cx13Backup" class="form-check"><span class="text-sm text-gray-200 flex-1">Download a full backup first</span></label>
+            <p class="cx-lbl" style="margin-top:14px">Your sign-in password</p><input id="cx13Pw" type="password" class="cx-in w-full" autocomplete="current-password" placeholder="Needed to purge the server copy">
+            <p class="cx-lbl" style="margin-top:10px">Type PURGE to confirm</p><input id="cx13Word" class="cx-in w-full" autocomplete="off">
+            <div id="cx13PMsg" style="min-height:20px;margin-top:10px;font-size:13px;color:#f87171"></div>
+            <button class="cx-btn red" onclick="CX13.purge()">Purge permanently</button></div></div>`);
+    }
+    async function purge() {
+        const msg = $('cx13PMsg'), scope = (document.querySelector('input[name=cx13Scope]:checked') || {}).value || 'all';
+        if (($('cx13Word').value || '').trim().toUpperCase() !== 'PURGE') return msg.textContent = 'Type PURGE to confirm.';
+        if ($('cx13Backup').checked) { try { CXSys.exportAll(); } catch (e) {} await new Promise(r => setTimeout(r, 800)); }
+        msg.style.color = '#94a3b8'; msg.textContent = 'Purging…';
+        window.__cxHold = true;                                                 // pause syncing so nothing is pushed back while the server is cleared
+        let server = 'not linked';
+        if (localStorage.getItem('walletCloudLinked') && /^https?:/.test(location.protocol)) {
+            try { const r = await fetch(API_BASE + '/purge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope, password: $('cx13Pw').value }) }), j = await r.json().catch(() => ({}));
+                if (!r.ok) { window.__cxHold = false; msg.style.color = '#f87171'; msg.textContent = j.error || (r.status === 404 ? 'Your server runs an older file. Upload the new server.js first.' : 'The server refused (' + r.status + ').'); return; }
+                server = 'purged'; localStorage.setItem('cxEpoch', String(j.epoch.at)); }
+            catch (e) { window.__cxHold = false; msg.style.color = '#f87171'; msg.textContent = 'The server could not be reached, so nothing was deleted. Try again when online.'; return; }
+        }
+        try { window.__cxWipe(scope); } catch (e) {}
+        if ($('cx13Snaps').checked) { try { indexedDB.deleteDatabase('wallyVault'); } catch (e) {} }
+        try { sessionStorage.setItem('cxKeep', String(Date.now())); } catch (e) {}
+        toast(scope === 'ledger' ? 'Ledger purged everywhere, sir.' : 'Everything purged, sir. A clean slate.'); setTimeout(() => location.reload(), 900);
+        return server;
+    }
+    window.nukeLedger = purgeModal;           // the red bin button above the ledger now opens the real purge
+
+    // ==========================================================================
+    // 2. SELF-CHECK
+    // ==========================================================================
+    const ms = t0 => Math.round(performance.now() - t0);
+    async function timed(fn) { const t0 = performance.now(); try { const v = await fn(); return { ok: true, v, ms: ms(t0) }; } catch (e) { return { ok: false, err: String(e.message || e).slice(0, 140), ms: ms(t0) }; } }
+    const withTimeout = (p, t) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer in ' + t / 1000 + ' s')), t))]);
+    async function diagnose(withAI) {
+        const rows = [], add = (name, r, detail, fix) => { rows.push({ name, ok: r === null ? null : !!r, detail: detail || '', fix: fix || '' }); paintDiag(rows); }, srv = /^https?:/.test(location.protocol);
+        modalDiag(); paintDiag(rows);
+        let h = null;
+        if (srv) {
+            const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
+            const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
+            add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
+            if (h) add('Server is up to date', h.version === 'mk3-r15', h.version || 'older file', h.version === 'mk3-r15' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
+            const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
+            add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
+            if (st.ok) add('Server stays awake', st.v.awake ? st.v.awake.ok !== false : null, st.v.awake ? `up ${Math.round(st.v.up / 60)} min • ${st.v.awake.pings} keep-awake visits${st.v.awake.ok === false ? ' • last one failed' : ''}` : 'keep-awake off', st.v.awake ? '' : 'Only works on Render (RENDER_EXTERNAL_URL) or with KEEP_AWAKE_URL set.');
+            const sy = await timed(() => fetch(API_BASE + '/sync', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
+            add('Sync download', sy.ok, sy.ok ? `${sy.ms} ms for ${(sy.v.tx || []).length} entries, ${(sy.v.wish || []).length} wishlist/library items, ${Object.keys(sy.v.state || {}).length} other records` : sy.err, sy.ok ? '' : 'Sign in again, or upload the newest server.js.');
+            if (sy.ok) { const local = transactions.length, srvN = (sy.v.tx || []).length; add('This device matches the server', Math.abs(local - srvN) <= 0 ? true : null, `${local} entries here, ${srvN} on the server`, local === srvN ? '' : 'Press Sync now under shield → Cloud; differences clear within seconds.'); }
+            const ev = await timed(() => withTimeout(new Promise((res, rej) => { const es = new EventSource(API_BASE + '/events'); es.onmessage = () => { es.close(); res(true); }; es.onerror = () => { es.close(); rej(new Error('refused')); }; }), 6000));
+            add('Live updates line', ev.ok, ev.ok ? `connected in ${ev.ms} ms` : ev.err, ev.ok ? '' : 'Changes still arrive every few seconds through the safety check.');
+            const cap = localStorage.getItem('cxCaptureKey');
+            add('Capture key for bookmarks and SMS', !!cap, cap ? 'present on this device' : 'missing', cap ? '' : 'Sign in with the password; the key is fetched automatically.');
+            if (cap) {
+                const bm = await timed(() => fetch(API_BASE + '/bookmark?key=' + encodeURIComponent(cap) + '&title=Self-check&price=1&url=' + encodeURIComponent('https://example.com/self-check'), { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.text(); }));
+                add('Bookmark save route', bm.ok && /Save to/.test(bm.v || ''), bm.ok ? `answers in ${bm.ms} ms (nothing was saved)` : bm.err, '');
+                const sm = await timed(() => fetch(API_BASE + '/sms?dry=1&key=' + encodeURIComponent(cap), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Rs.1.00 debited from A/c XX00 self-check message', dry: true }) }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
+                add('Phone SMS drop-box', sm.ok, sm.ok ? `accepts messages in ${sm.ms} ms (test not stored)` : sm.err, sm.ok ? '' : 'Upload the newest server.js.');
+            }
+            const sc = await timed(() => withTimeout(fetch(API_BASE + '/scrape-price', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com/' }) }).then(x => x.json()), 15000));
+            add('Server link reader', sc.ok && sc.v && typeof sc.v.title === 'string', sc.ok ? `read a test page in ${sc.ms} ms${sc.v.title ? ' (“' + esc(String(sc.v.title).slice(0, 30)) + '”)' : ''}` : sc.err, 'Shops such as Amazon often block servers; the capture bookmark is the reliable route.');
+        } else add('Server', null, 'Opened as a file: no server checks', 'Open the app from your Render address.');
+        // on-device features
+        safe(() => { const tests = [['Rs.450.00 debited from A/c XX1234 on 05-10-26 to SWIGGY UPI Ref 512345678901', 450, 'expense'], ['INR 25,000.00 credited to your A/c XX9876 on 01-10-26 by NEFT from ACME PVT LTD', 25000, 'income'], ['Your a/c XX12 is debited by Rs 1,299 for AMAZON PAY. Avl Bal Rs 10,000', 1299, 'expense']];
+            const res = tests.map(([txt, amt, type]) => { const r = window.CXSms.parse(txt); return r && Math.abs((r.amount || 0) - amt) < .01 && r.type === type; }), n = res.filter(Boolean).length;
+            add('Bank SMS reader', n === tests.length, `${n} of ${tests.length} sample messages read correctly (amount and in/out, balance ignored)`, n === tests.length ? '' : 'Send me the message format that fails.'); });
+        safe(() => { const code = window.CX8 && CX8.bookmarklet ? decodeURIComponent(CX8.bookmarklet('w')) : ''; add('Capture bookmark code', !!code, code ? (code.includes('/bookmark') ? 'server mode: saves without opening the app' : 'on-device mode: hands items to the open app') : 'not built', code && !code.includes('/bookmark') && srv ? 'Link the cloud, then re-drag the bookmark.' : ''); });
+        const wx = await timed(() => withTimeout(fetch('https://api.open-meteo.com/v1/forecast?latitude=13&longitude=80&current=temperature_2m').then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }), 8000));
+        add('Weather service', wx.ok, wx.ok ? `answers in ${wx.ms} ms` : wx.err, '');
+        const rl = await timed(() => withTimeout(fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://example.com/')).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.text(); }), 10000));
+        add('Price lookup relay', rl.ok, rl.ok ? `public relay answers in ${rl.ms} ms` : rl.err + ' (the relay is a free outside service)', '');
+        add('Notifications', 'Notification' in window ? Notification.permission === 'granted' : false, 'Notification' in window ? Notification.permission : 'not supported', 'Notification' in window && Notification.permission !== 'granted' ? 'Shield → Reminders → Allow.' : '');
+        const swr = await timed(async () => navigator.serviceWorker ? !!(await navigator.serviceWorker.getRegistration()) : false); add('Installable / offline copy', swr.ok && swr.v, swr.v ? 'service worker active' : 'not active', '');
+        const est = await timed(async () => navigator.storage && navigator.storage.estimate ? navigator.storage.estimate() : null);
+        if (est.ok && est.v) add('Storage on this device', est.v.usage < est.v.quota * .8, `${(est.v.usage / 1048576).toFixed(1)} MB used of ${(est.v.quota / 1048576).toFixed(0)} MB allowed`, '');
+        if (withAI && srv) { const ai = await timed(() => withTimeout(fetch(API_BASE + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'user', content: 'Reply with the single word OK.' }] }) }).then(async x => { const j = await x.json(); if (!x.ok) throw new Error(j.error || 'HTTP ' + x.status); return j; }), 60000)); add('AI chat (Gemini)', ai.ok, ai.ok ? `answered in ${ai.ms} ms: “${esc(String(ai.v.reply).slice(0, 40))}”` : ai.err, ai.ok ? '' : 'Check GEMINI_API_KEY and CHAT_MODEL in Render.'); }
+        else if (srv) add('AI chat', null, 'not tested (uses one AI request)', 'Press “Include AI” to test it.');
+        const done = $('cx13DiagState'); if (done) done.textContent = `Finished • ${rows.filter(r => r.ok === true).length} passed, ${rows.filter(r => r.ok === false).length} failed, ${rows.filter(r => r.ok === null).length} to look at`;
+        return rows;
+    }
+    function modalDiag() {
+        const old = $('cx13Diag'); if (old) old.remove();
+        document.body.insertAdjacentHTML('beforeend', `<div class="cx-modal" id="cx13Diag"><div style="width:min(760px,100%)"><h3><span>System self-check</span><button class="cx-btn red sm" onclick="document.getElementById('cx13Diag').remove()">Close</button></h3><p id="cx13DiagState" style="font-size:12.5px;color:#94a3b8;margin-bottom:10px">Running…</p><div id="cx13DiagRows"></div><div class="flex flex-wrap gap-2" style="margin-top:12px"><button class="cx-btn sm" onclick="CX13.check(false)">Run again</button><button class="cx-btn green sm" onclick="CX13.check(true)">Include AI</button></div></div></div>`);
+    }
+    function paintDiag(rows) { const el = $('cx13DiagRows'); if (!el) return; el.innerHTML = rows.map(r => `<div class="cx13-d ${r.ok === true ? 'ok' : r.ok === false ? 'bad' : 'warn'}"><i>${r.ok === true ? '✓' : r.ok === false ? '✕' : '!'}</i><span><b>${esc(r.name)}</b><em>${r.detail}</em>${r.fix ? `<small>${esc(r.fix)}</small>` : ''}</span></div>`).join(''); }
+
+    // ==========================================================================
+    // 3. DASHBOARD
+    // ==========================================================================
+    const css = document.createElement('style');
+    css.textContent = `
+    .cx13-d { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); margin-bottom: 6px; background: rgba(255,255,255,.02); }
+    .cx13-d i { font-style: normal; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+    .cx13-d.ok i { background: rgba(52,211,153,.18); color: #34d399; } .cx13-d.bad i { background: rgba(248,113,113,.18); color: #f87171; } .cx13-d.warn i { background: rgba(251,191,36,.18); color: #fbbf24; } .cx13-d.bad { border-color: rgba(248,113,113,.35); }
+    .cx13-d b { display: block; color: #fff; font-size: 13.5px; } .cx13-d em { display: block; font-style: normal; color: #cbd5e1; font-size: 12.5px; } .cx13-d small { display: block; color: #fbbf24; font-size: 12px; margin-top: 2px; }
+    #cx13Jump { position: sticky; top: 8px; z-index: 40; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 7px; margin: 0 0 14px; border-radius: 14px; background: rgba(4,9,17,.88); border: 1px solid rgba(0,229,255,.18); backdrop-filter: blur(10px); }
+    #cx13Jump::-webkit-scrollbar { display: none; } #cx13Jump button { flex: 0 0 auto; padding: 7px 12px; border-radius: 10px; font: 700 10.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; border: 1px solid transparent; transition: .2s; } #cx13Jump button:hover { color: #fff; } #cx13Jump button.on { color: #000; background: #00e5ff; }
+    #cx13Board { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 0 0 14px; } #cx13Board > div { min-width: 0; }
+    #cx13Board .glass-panel { padding: 16px 18px; } #cx13Board h4 { font: 700 11px 'Oxanium', sans-serif; letter-spacing: .13em; text-transform: uppercase; color: var(--c, #00e5ff); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 8px; } #cx13Board h4 small { color: #64748b; letter-spacing: .05em; }
+    .cx13-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .cx13-kv div span { display: block; font: 700 9.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; } .cx13-kv div b { font: 700 17px 'Oxanium', sans-serif; color: #fff; }
+    .cx13-li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 12.5px; color: #cbd5e1; align-items: center; } .cx13-li:first-of-type { border-top: 0; } .cx13-li b { color: #fff; white-space: nowrap; } .cx13-li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cx13-li small { color: #64748b; display: block; }
+    .cx13-delta.up { color: #f87171; } .cx13-delta.down { color: #34d399; }
+    .cx13-spark { width: 100%; height: 70px; display: block; }
+    @media (max-width: 640px) { #cx13Jump { top: 4px; margin-left: -2px; margin-right: -2px; } #cx13Board { grid-template-columns: 1fr; gap: 10px; } }
+    `;
+    document.head.appendChild(css);
+    const exp = () => transactions.filter(t => t.type === 'expense' && t.account !== 'Emergency');
+    const norm = t => String(t.note || t.category || '').toLowerCase().replace(/[0-9#*]+/g, '').replace(/\s+/g, ' ').trim() || String(t.category || '').toLowerCase();
+    function glance() {
+        const now = new Date(), d = now.getDate(), k = mKey(now.getTime()), lm = new Date(now.getFullYear(), now.getMonth() - 1, 1), lk = mKey(lm.getTime());
+        const inM = (t, key, upto) => mKey(t.timestamp) === key && (!upto || new Date(t.timestamp).getDate() <= upto);
+        const inc = transactions.filter(t => t.type === 'income' && inM(t, k)).reduce((a, t) => a + t.amount, 0), sp = exp().filter(t => inM(t, k)).reduce((a, t) => a + t.amount, 0), lsp = exp().filter(t => inM(t, lk, d)).reduce((a, t) => a + t.amount, 0);
+        const rate = inc > 0 ? Math.round((inc - sp) / inc * 100) : null, delta = lsp > 0 ? Math.round((sp - lsp) / lsp * 100) : null;
+        const cats = {}; exp().filter(t => inM(t, k)).forEach(t => { cats[t.category] = (cats[t.category] || 0) + t.amount; }); const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+        const big = exp().filter(t => inM(t, k)).sort((a, b) => b.amount - a.amount)[0];
+        return `<div class="glass-panel" style="--c:#00e5ff"><h4>Month at a glance <small>${now.toLocaleDateString('en-GB', { month: 'long' })}</small></h4><div class="cx13-kv"><div><span>Earned</span><b style="color:#34d399">${inr(inc)}</b></div><div><span>Spent</span><b style="color:#f87171">${inr(sp)}</b></div><div><span>Savings rate</span><b>${rate == null ? '—' : rate + '%'}</b></div><div><span>vs last month, same date</span><b class="cx13-delta ${delta > 0 ? 'up' : 'down'}">${delta == null ? '—' : (delta > 0 ? '+' : '') + delta + '%'}</b></div></div>
+            <div class="cx13-li" style="margin-top:10px"><span>Top category: ${top ? esc(top[0]) : '—'}</span><b>${top ? inr(top[1]) : ''}</b></div><div class="cx13-li"><span>Biggest: ${big ? esc(big.note || big.category) : '—'}</span><b>${big ? inr(big.amount) : ''}</b></div></div>`;
+    }
+    function subs() {
+        const groups = {}, cut = Date.now() - 200 * 864e5; exp().filter(t => t.timestamp > cut).forEach(t => { const g = norm(t); (groups[g] = groups[g] || []).push(t); });
+        const found = [];
+        Object.entries(groups).forEach(([g, l]) => { const months = new Set(l.map(t => mKey(t.timestamp))); if (months.size < 3 && !l.some(t => t.isRecurring)) return; const amts = l.map(t => t.amount).sort((a, b) => a - b), med = amts[Math.floor(amts.length / 2)]; if (!l.some(t => t.isRecurring) && amts.filter(a => Math.abs(a - med) <= med * .12).length < 3) return; const last = l.sort((a, b) => b.timestamp - a.timestamp)[0]; found.push({ name: last.note || last.category, amt: med, last: last.timestamp, next: last.timestamp + 30 * 864e5 }); });
+        found.sort((a, b) => b.amt - a.amt); const total = found.reduce((a, f) => a + f.amt, 0);
+        return `<div class="glass-panel" style="--c:#a855f7"><h4>Repeating payments <small>${found.length ? inr(total) + ' / month' : 'none found'}</small></h4>${found.length ? found.slice(0, 5).map(f => `<div class="cx13-li"><span>${esc(f.name)}<small>next around ${new Date(f.next).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</small></span><b>${inr(f.amt)}</b></div>`).join('') : '<p style="font-size:12.5px;color:#94a3b8">Payments that repeat at about the same amount for three months (rent, phone, streaming) show up here.</p>'}</div>`;
+    }
+    function unusual() {
+        const cut = Date.now() - 90 * 864e5, recent = Date.now() - 30 * 864e5, byCat = {}; exp().filter(t => t.timestamp > cut).forEach(t => { (byCat[t.category] = byCat[t.category] || []).push(t.amount); });
+        const med = c => { const a = (byCat[c] || []).slice().sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; };
+        const odd = exp().filter(t => t.timestamp > recent && (byCat[t.category] || []).length >= 4 && t.amount >= Math.max(1000, med(t.category) * 3)).sort((a, b) => b.amount - a.amount).slice(0, 4);
+        return `<div class="glass-panel" style="--c:#f97316"><h4>Unusual spending <small>last 30 days</small></h4>${odd.length ? odd.map(t => `<div class="cx13-li"><span>${esc(t.note || t.category)}<small>${new Date(t.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • ${Math.round(t.amount / Math.max(1, med(t.category)))}× your usual ${esc(t.category)}</small></span><b>${inr(t.amount)}</b></div>`).join('') : '<p style="font-size:12.5px;color:#94a3b8">Nothing out of the ordinary. Payments three times above your usual for a category are flagged here.</p>'}</div>`;
+    }
+    function trend() {
+        const pts = []; for (let i = 5; i >= 0; i--) { const e = new Date(); e.setDate(1); e.setMonth(e.getMonth() - i + 1); e.setHours(0, 0, 0, 0); const end = i === 0 ? Date.now() : e.getTime(); pts.push({ m: new Date(end - 1).toLocaleDateString('en-GB', { month: 'short' }), v: transactions.filter(t => t.timestamp < end && t.account !== 'Emergency').reduce((a, t) => a + (t.type === 'income' ? t.amount : -t.amount), 0) }); }
+        const mn = Math.min(...pts.map(p => p.v)), mx = Math.max(...pts.map(p => p.v)), sp = Math.max(1, mx - mn), X = i => 6 + i * (288 / 5), Y = v => 60 - (v - mn) / sp * 50;
+        const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.v).toFixed(1)}`).join(' '), ch = pts[5].v - pts[4].v;
+        return `<div class="glass-panel" style="--c:#34d399"><h4>Cash trend <small>${ch >= 0 ? '+' : ''}${inr(ch)} this month</small></h4><svg class="cx13-spark" viewBox="0 0 300 70" preserveAspectRatio="none"><defs><linearGradient id="cx13g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#34d399" stop-opacity=".35"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient></defs><path d="${line} L${X(5)} 68 L${X(0)} 68 Z" fill="url(#cx13g)"/><path d="${line}" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${pts.map((p, i) => `<circle cx="${X(i)}" cy="${Y(p.v)}" r="3" fill="#34d399"/>`).join('')}</svg><div style="display:flex;justify-content:space-between;font:600 10px 'Oxanium',sans-serif;color:#64748b;margin-top:4px">${pts.map(p => `<span>${p.m}</span>`).join('')}</div><div class="cx13-li" style="margin-top:6px"><span>Liquid cash now</span><b>${inr(pts[5].v)}</b></div></div>`;
+    }
+    function board() {
+        const dash = $('viewDashboard'), anchor = $('cx12Next') || $('cxCmd'); if (!dash || !anchor) return;
+        let el = $('cx13Board'); if (!el) { anchor.insertAdjacentHTML('afterend', '<div id="cx13Board" data-jump="Insights"></div>'); el = $('cx13Board'); }
+        const h = [glance(), trend(), subs(), unusual()].map(x => `<div>${x}</div>`).join(''); if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
+    }
+    const SECTIONS = [['Overview', () => $('cxCmd')], ['Up next', () => $('cx12Next')], ['Insights', () => $('cx13Board')], ['Reactor', () => $('cxIntro')], ['Balances', () => { const e = document.querySelector('#viewDashboard .text-4xl, #viewDashboard .text-5xl'); return e && e.closest('.glass-panel'); }], ['Ledger', () => { const e = $('ledgerList'); return e && e.closest('.glass-panel'); }], ['Telemetry', () => document.querySelector('#viewDashboard .stats-stack-container, #viewDashboard .chart-stack-container')], ['Spend map', () => { const e = $('upgHeatmap'); return e && e.closest('.glass-panel'); }], ['C.A.S.P.E.R.', () => { const e = $('aiTerminal'); return e && (e.closest('.glass-panel') || e); }]];
+    let io = null;
+    function jumpBar() {
+        const dash = $('viewDashboard'), cmd = $('cxCmd'); if (!dash || !cmd || $('cx13Jump')) return;
+        cmd.insertAdjacentHTML('beforebegin', `<nav id="cx13Jump" aria-label="Dashboard sections">${SECTIONS.map((s, i) => `<button type="button" data-i="${i}">${s[0]}</button>`).join('')}<button type="button" data-diag="1" style="margin-left:auto;color:#34d399">✓ Self-check</button></nav>`);
+        $('cx13Jump').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.diag) return diagnose(false); const t = SECTIONS[+b.dataset.i][1](); if (t) { const y = t.getBoundingClientRect().top + scrollY - 70; scrollTo({ top: y, behavior: 'smooth' }); } });
+        if ('IntersectionObserver' in window) { io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; const i = SECTIONS.findIndex(s => s[1]() === e.target); document.querySelectorAll('#cx13Jump button[data-i]').forEach(b => b.classList.toggle('on', +b.dataset.i === i)); }), { rootMargin: '-30% 0px -60% 0px' }); setTimeout(() => SECTIONS.forEach(s => { const t = s[1](); if (t) io.observe(t); }), 1500); }
+    }
+
+    // ==========================================================================
+    // 4. LOCK FALLBACK
+    // ==========================================================================
+    async function lockGuard() {
+        if (!/^https?:/.test(location.protocol) || window.__cxLock) return;
+        try { const h = await (await fetch(API_BASE + '/health', { cache: 'no-store' })).json(); if (h.gate && h.lock >= 3 && !sessionStorage.getItem('cxUnlocked')) location.replace('/login?next=' + encodeURIComponent(location.pathname)); } catch (e) {}
+    }
+
+    window.CX13 = { purge, purgeModal, check: diagnose, board };
+    const start = () => {
+        safe(lockGuard);
+        setTimeout(() => { safe(jumpBar); safe(board); }, 1700);
+        setInterval(() => { if (!document.hidden && document.body.dataset.view !== 'growth') { safe(jumpBar); safe(board); } }, 5000);
+        const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); safe(board); return r; };
+        // a self-check entry in the System panel
+        new MutationObserver(() => { const m = $('cxSysModal'); if (m && !$('cx13Btn')) { const h = m.querySelector('h3'); if (h) h.insertAdjacentHTML('afterend', `<div style="margin:-4px 0 10px"><button id="cx13Btn" class="cx-btn green sm" onclick="document.getElementById('cxSysModal').remove();CX13.check(false)">✓ Run a full self-check</button> <button class="cx-btn red sm" onclick="document.getElementById('cxSysModal').remove();CX13.purgeModal()">Purge data…</button></div>`); } }).observe(document.body, { childList: true });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
