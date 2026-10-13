@@ -44,7 +44,7 @@ function safeGetJSON(key, fallback) {
 // ==============================================================================
 // 2. RAW DATA SEED & ZERO-CREDIT MIGRATION
 // ==============================================================================
-const rawData = '[{"i":"1786233600000","t":"e","a":460.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1786233600000},{"i":"1786147200001","t":"e","a":418.75,"ac":"UPI","c":"Groceries","n":"","ts":1786147200000},{"i":"1786147200002","t":"e","a":95.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1786147200000},{"i":"1786147200003","t":"e","a":719.0,"ac":"UPI","c":"Subscriptions","n":"","ts":1786147200000},{"i":"1786147200004","t":"e","a":55.0,"ac":"UPI","c":"Groceries","n":"","ts":1786147200000},{"i":"1786147200005","t":"e","a":65.0,"ac":"UPI","c":"Transport","n":"","ts":1786147200000},{"i":"1786060800006","t":"e","a":163.0,"ac":"UPI","c":"Groceries","n":"","ts":1786060800000},{"i":"1785974400007","t":"e","a":130.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785974400000},{"i":"1785801600008","t":"e","a":240.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785801600000},{"i":"1785715200009","t":"i","a":39.84,"ac":"UPI","c":"Other","n":"","ts":1785715200000},{"i":"1785715200010","t":"e","a":115.0,"ac":"UPI","c":"Groceries","n":"","ts":1785715200000},{"i":"1785715200011","t":"e","a":161.72,"ac":"UPI","c":"Food & Dining","n":"","ts":1785715200000},{"i":"1785628800012","t":"e","a":64.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800013","t":"e","a":32.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800014","t":"e","a":16.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800015","t":"i","a":35.0,"ac":"UPI","c":"Other","n":"","ts":1785628800000},{"i":"1785628800016","t":"e","a":125.0,"ac":"UPI","c":"Groceries","n":"","ts":1785628800000},{"i":"1785628800017","t":"e","a":13.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800018","t":"e","a":35.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800019","t":"e","a":23.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785628800020","t":"e","a":27.0,"ac":"UPI","c":"Transport","n":"","ts":1785628800000},{"i":"1785542400021","t":"e","a":9750.0,"ac":"UPI","c":"Rent","n":"","ts":1785542400000},{"i":"1785542400022","t":"e","a":131.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785542400000},{"i":"1785542400023","t":"e","a":20000.0,"ac":"UPI","c":"Other","n":"","ts":1785542400000},{"i":"1785542400024","t":"i","a":50080.0,"ac":"UPI","c":"Salary","n":"","ts":1785542400000},{"i":"1785369600025","t":"e","a":165.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785369600000},{"i":"1785369600026","t":"e","a":167.72,"ac":"UPI","c":"Food & Dining","n":"","ts":1785369600000},{"i":"1785283200027","t":"e","a":198.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785283200000},{"i":"1785283200028","t":"e","a":153.0,"ac":"Credit Card","c":"Shopping","n":"Amazon India","ts":1785283200000},{"i":"1785196800029","t":"e","a":50.0,"ac":"UPI","c":"Groceries","n":"","ts":1785196800000},{"i":"1785110400030","t":"e","a":120.0,"ac":"UPI","c":"Groceries","n":"","ts":1785110400000},{"i":"1785110400031","t":"e","a":511.97,"ac":"Credit Card","c":"Entertainment","n":"","ts":1785110400000},{"i":"1785024000032","t":"e","a":421.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785024000000},{"i":"1785024000033","t":"e","a":35.0,"ac":"UPI","c":"Groceries","n":"","ts":1785024000000},{"i":"1785024000034","t":"e","a":164.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1785024000000},{"i":"1784937600035","t":"e","a":60.0,"ac":"UPI","c":"Groceries","n":"","ts":1784937600000},{"i":"1784937600036","t":"e","a":127.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784937600000},{"i":"1784764800037","t":"e","a":80.0,"ac":"UPI","c":"Groceries","n":"","ts":1784764800000},{"i":"1784678400038","t":"e","a":120.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784678400000},{"i":"1784678400039","t":"e","a":60.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784678400000},{"i":"1784592000040","t":"e","a":144.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784592000000},{"i":"1784592000041","t":"i","a":2800.0,"ac":"UPI","c":"Refund","n":"","ts":1784592000000},{"i":"1784592000042","t":"e","a":30.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784592000000},{"i":"1784505600043","t":"e","a":15.0,"ac":"UPI","c":"Groceries","n":"","ts":1784505600000},{"i":"1784505600044","t":"e","a":45.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784505600000},{"i":"1784419200045","t":"e","a":289.0,"ac":"UPI","c":"Groceries","n":"","ts":1784419200000},{"i":"1784419200046","t":"e","a":167.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784419200000},{"i":"1784419200047","t":"e","a":60.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784419200000},{"i":"1784332800048","t":"e","a":665.0,"ac":"Debit Card","c":"Electricity charges","n":"","ts":1784332800000},{"i":"1784332800049","t":"e","a":60.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1784332800000},{"i":"1784332800050","t":"e","a":35.0,"ac":"UPI","c":"Groceries","n":"THANGAM FRUITS AND VEGETABLES","ts":1784332800000},{"i":"1784332800051","t":"e","a":40.0,"ac":"UPI","c":"Transport","n":"METROPOLITAN TRANSPORT","ts":1784332800000},{"i":"1784332800052","t":"e","a":23.0,"ac":"UPI","c":"Other","n":"Cumta info","ts":1784332800000},{"i":"1784332800053","t":"i","a":62.0,"ac":"UPI","c":"Other","n":"SHIVAYOGESHJ","ts":1784332800000},{"i":"1784332800054","t":"e","a":32.0,"ac":"UPI","c":"Transport","n":"Rapido","ts":1784332800000},{"i":"1784332800055","t":"e","a":32.0,"ac":"UPI","c":"Transport","n":"Rapido","ts":1784332800000},{"i":"1784332800056","t":"e","a":206.0,"ac":"UPI","c":"Entertainment","n":"MOHAMED IMRAN FAREET","ts":1784332800000},{"i":"1784332800057","t":"e","a":681.17,"ac":"Credit Card","c":"Food & Dining","n":"Dominos Pizza","ts":1784332800000},{"i":"1784332800058","t":"e","a":10.0,"ac":"UPI","c":"Transport","n":"Indian Railway","ts":1784332800000},{"i":"1784332800059","t":"e","a":20.0,"ac":"UPI","c":"Other","n":"SHIVAYOGESH J","ts":1784332800000},{"i":"1784332800060","t":"e","a":13.0,"ac":"UPI","c":"Transport","n":"","ts":1784332800000},{"i":"1784332800061","t":"e","a":33.0,"ac":"UPI","c":"Transport","n":"","ts":1784332800000},{"i":"1784332800062","t":"e","a":5.0,"ac":"UPI","c":"Transport","n":"","ts":1784332800000},{"i":"1784246400063","t":"e","a":1654.0,"ac":"Credit Card","c":"Shopping","n":"Amazon India","ts":1784246400000},{"i":"1784246400064","t":"e","a":60.0,"ac":"UPI","c":"Groceries","n":"","ts":1784246400000},{"i":"1783987200065","t":"e","a":105.0,"ac":"UPI","c":"Food & Dining","n":"SWIGGY","ts":1783987200000},{"i":"1783900800066","t":"e","a":60.0,"ac":"UPI","c":"Groceries","n":"","ts":1783900800000},{"i":"1783814400067","t":"e","a":150.0,"ac":"UPI","c":"Other","n":"Haircut","ts":1783814400000},{"i":"1783728000068","t":"e","a":20000.0,"ac":"Debit Card","c":"Other","n":"","ts":1783728000000},{"i":"1783555200069","t":"e","a":211.0,"ac":"UPI","c":"Food & Dining","n":"Swiggy Ltd","ts":1783555200000},{"i":"1783468800070","t":"e","a":992.25,"ac":"Credit Card","c":"Transport","n":"AbhiBus","ts":1783468800000},{"i":"1783468800071","t":"e","a":894.0,"ac":"Credit Card","c":"Transport","n":"ABHIBUS COM","ts":1783468800000},{"i":"1783382400072","t":"e","a":30.0,"ac":"UPI","c":"Food & Dining","n":"THANGAM FRUITS AND VEGETABLES","ts":1783382400000},{"i":"1783382400073","t":"e","a":115.0,"ac":"UPI","c":"Food & Dining","n":"Swiggy Ltd","ts":1783382400000},{"i":"1783382400074","t":"e","a":11.0,"ac":"UPI","c":"Other","n":"","ts":1783382400000},{"i":"1783382400075","t":"e","a":10.0,"ac":"UPI","c":"Other","n":"","ts":1783382400000},{"i":"1783382400076","t":"e","a":35.0,"ac":"UPI","c":"Groceries","n":"THANGAM FRUITS AND VEGETABLES","ts":1783382400000},{"i":"1783209600077","t":"e","a":128.0,"ac":"UPI","c":"Food & Dining","n":"SWIGGY","ts":1783209600000},{"i":"1783209600078","t":"e","a":595.0,"ac":"UPI","c":"Food & Dining","n":"SWIGGY","ts":1783209600000},{"i":"1783209600079","t":"e","a":147.0,"ac":"UPI","c":"Groceries","n":"","ts":1783209600000},{"i":"1783123200080","t":"e","a":3250.0,"ac":"UPI","c":"Rent","n":"","ts":1783123200000},{"i":"1783123200081","t":"e","a":110.0,"ac":"UPI","c":"Groceries","n":"","ts":1783123200000},{"i":"1783036800082","t":"e","a":255.0,"ac":"UPI","c":"Food & Dining","n":"","ts":1783036800000},{"i":"1782950400083","t":"e","a":134.0,"ac":"UPI","c":"Other","n":"","ts":1782950400000},{"i":"1782950400084","t":"e","a":20.0,"ac":"UPI","c":"Groceries","n":"","ts":1782950400000},{"i":"1782864000085","t":"i","a":51091.0,"ac":"UPI","c":"Salary","n":"","ts":1782864000000},{"i":"1782864000086","t":"e","a":40.0,"ac":"UPI","c":"Groceries","n":"","ts":1782864000000},{"i":"1782864000087","t":"e","a":122.0,"ac":"UPI","c":"Food & Dining","n":"SWIGGY","ts":1782864000000}]';
+const rawData = '[]';   // emptied in MK 3 round 16: your entries now live only in your own encrypted database
 
 let seedTransactions = [];
 try {
@@ -5691,7 +5691,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         if (e.key === TXK) { transactions = (JSON.parse(e.newValue || '[]') || []).map(normalizeTransaction); updateUI(); }
         else if (e.key === 'walletWishlistBackup') { wishlistItems = JSON.parse(e.newValue || '[]') || []; renderWishlist(); }
         else if (e.key === 'walletMediaBackup') { mediaItems = JSON.parse(e.newValue || '[]') || []; renderMedia(); }
-        else if (synced(e.key)) { clearTimeout(softT); softT = setTimeout(() => { const ae = document.activeElement, typing = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName), last = +sessionStorage.getItem('cxReloadAt') || 0; if (!typing && !document.querySelector('.cx-modal, .fullscreen-wb') && Date.now() - last > 20000) { sessionStorage.setItem('cxReloadAt', String(Date.now())); sessionStorage.setItem('cxResume', JSON.stringify({ v: document.body.dataset.view || 'dashboard', y: window.scrollY })); (sessionStorage.setItem('cxKeep', String(Date.now())), location.reload()); } }, 1500); }
+        else if (synced(e.key)) { try { window.__cxPoke && window.__cxPoke(); } catch (x) {} clearTimeout(softT); softT = setTimeout(() => { const ae = document.activeElement, typing = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName), last = +sessionStorage.getItem('cxReloadAt') || 0; if (!typing && !document.querySelector('.cx-modal, .fullscreen-wb') && Date.now() - last > 20000) { sessionStorage.setItem('cxReloadAt', String(Date.now())); sessionStorage.setItem('cxResume', JSON.stringify({ v: document.body.dataset.view || 'dashboard', y: window.scrollY })); (sessionStorage.setItem('cxKeep', String(Date.now())), location.reload()); } }, 1500); }
     } catch (x) { console.warn('storage sync', x); } });
     const poke = ms => { if (cloud.state === 'locked' || cloud.state === 'offline' && !navigator.onLine) return; clearTimeout(live.t); live.t = setTimeout(() => { if (syncNow.busy) syncNow.again = true; else syncNow(false); }, ms || 900); };
     window.__cxPoke = () => { if (!localStorage.getItem('walletCloudLinked')) return; if (syncNow.busy) syncNow.again = true; else poke(350); };
@@ -5755,8 +5755,9 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             if (r1.ok) one = await r1.json().catch(() => null);
             if (!one) { if (!(await health())) { if (manual) toast('No server is reachable, sir. Your data is safe on this device.', true); return; } }
             if (one && one.epoch && one.epoch.at > (+localStorage.getItem('cxEpoch') || 0)) {          // a purge happened (here or on another device)
-                const first = !localStorage.getItem('cxEpoch'); wipeLocal(one.epoch.scope); rawSet.call(localStorage, 'cxEpoch', String(one.epoch.at));
-                if (!first || transactions.length || wishlistItems.length) { sessionStorage.setItem('cxKeep', String(Date.now())); toast('Your data was purged, sir. Starting fresh.'); setTimeout(() => location.reload(), 700); return; }
+                const first = !localStorage.getItem('cxEpoch'), had = transactions.length || (one.epoch.scope !== 'ledger' && wishlistItems.length); wipeLocal(one.epoch.scope); rawSet.call(localStorage, 'cxEpoch', String(one.epoch.at));
+                if (!first || had) { sessionStorage.setItem('cxKeep', String(Date.now())); toast('Your data was purged, sir. Starting fresh.'); setTimeout(() => location.reload(), 700); return; }
+                window.__cxHold = false;                                                   // a brand-new device had nothing to wipe: carry on syncing
             }
             let rawTx, sW, gone, box, sv;
             if (one) { rawTx = one.tx || []; sW = one.wish || []; gone = one.deleted || { tx: [], wish: [] }; box = one.inbox || []; sv = one.state || {}; live.startRev = one.rev; }
@@ -5787,19 +5788,23 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             // bank messages your phone posted to the server
             let cap = 0; const ack = []; if (box && box.length) { box.forEach(m => { let n = 0; window.__cxSmsNext = () => 'sms-' + m.id + (n++ ? '-' + n : ''); const before = transactions.length; try { window.CXSms.ingest(m.text, 'phone SMS'); } finally { window.__cxSmsNext = null; } cap += Math.max(0, transactions.length - before); ack.push(m.id); }); }
             // everything else: newest change wins per item; the very first link on a device never overwrites the server
-            const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0; const push = {};
+            const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0, quiet = 0; const push = {};
+            const QUIET = new Set(['walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
             if (sv) {
                 const mt = MT();
                 new Set(Object.keys(sv).concat(Object.keys(localStorage).filter(synced))).forEach(k => {
                     if (!synced(k)) return; const lv = localStorage.getItem(k), lt = mt[k] || (lv !== null ? 1 : 0), s = sv[k];
-                    if (s && typeof s.v === 'string' && (s.t > lt || (first && lv !== s.v))) { if (lv !== s.v) { rawSet.call(localStorage, k, s.v); pulled++; } mt[k] = s.t; }
+                    if (s && typeof s.v === 'string' && (s.t > lt || (first && lv !== s.v))) { if (lv !== s.v) { rawSet.call(localStorage, k, s.v); if (QUIET.has(k)) quiet++; else pulled++; } mt[k] = s.t; }
                     else if (lv !== null && (!s || lt > s.t) && lv.length < 900000) { push[k] = { v: lv, t: lt > 1 ? lt : Date.now() }; mt[k] = push[k].t; pushed++; }
                 });
                 rawSet.call(localStorage, 'cxMT', JSON.stringify(mt));
             }
             live.sent = pushTx.length + pushW.length + delTx.length + delW.length + pushed + ack.length;
             if (one) {
-                if (live.sent || back.tx.length || back.wish.length) { const pr = await api('/sync', { method: 'POST', body: JSON.stringify({ tx: pushTx.slice(0, 2000), wish: pushW.slice(0, 1000), del: { tx: delTx, wish: delW }, undelete: back, state: push, ack }) }); if (pr.ok) { const j = await pr.json(); live.rev = j.rev; } else throw new Error('push failed'); }
+                if (live.sent || back.tx.length || back.wish.length) { const pr = await api('/sync', { method: 'POST', body: JSON.stringify({ tx: pushTx.slice(0, 2000), wish: pushW.slice(0, 1000), del: { tx: delTx, wish: delW }, undelete: back, state: push, ack, epoch: +localStorage.getItem('cxEpoch') || 0 }) });
+                    if (pr.status === 409) { const j = await pr.json().catch(() => ({})); if (j.purged && j.purged.at) { wipeLocal(j.purged.scope); rawSet.call(localStorage, 'cxEpoch', String(j.purged.at)); sessionStorage.setItem('cxKeep', String(Date.now())); toast('Your data was purged, sir. Starting fresh.'); setTimeout(() => location.reload(), 700); } return; }
+                    if (pr.status === 503) { setTimeout(() => { try { window.__cxPoke && window.__cxPoke(); } catch (e) {} }, 3000); return; }
+                    if (pr.ok) { const j = await pr.json(); live.rev = j.rev; } else throw new Error('push failed'); }
                 else live.rev = one.rev;
             } else {
                 if (back.tx.length || back.wish.length) await api('/undelete', { method: 'POST', body: JSON.stringify(back) });
@@ -5816,6 +5821,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             cloud.state = 'online'; cloud.last = Date.now(); cloud.note = `${merged.length} ledger entries • sent ${live.sent} • received ${gotItems + mW.got + pulled + cap}`;
             try { updateUI(); renderWishlist(); renderMedia(); } catch (e) {}
             if (cap) toast(`${cap} bank message${cap > 1 ? 's' : ''} from your phone added to the ledger, sir.`);
+            if (quiet) { try { window.CXN && CXN.paintBell(); } catch (e) {} }
             if (pulled) {                                                           // settings-type data changed elsewhere: reload quietly when it will not interrupt you
                 const ae = document.activeElement, typing = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName), busyUi = document.querySelector('.cx-modal, .fullscreen-wb') || (window.CXGrowth && CXGrowth.timerOn && CXGrowth.timerOn());
                 const lastR = +sessionStorage.getItem('cxReloadAt') || 0, ok = Date.now() - lastR > 45000;
@@ -5917,7 +5923,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         snapshot, dueNow: due
     };
     function paintStatus() {
-        const b = $('cxBell'); if (b) { const seen = +localStorage.getItem('cxNotifSeen') || 0, n = nlog().items.filter(i => (i.at || 0) > seen).length; b.querySelector('em').textContent = n || ''; b.querySelector('em').style.display = n ? '' : 'none'; }
+        const b = window.CXN ? null : $('cxBell'); if (window.CXN) { try { CXN.paintBell(); } catch (e) {} } if (b) { const seen = +localStorage.getItem('cxNotifSeen') || 0, n = nlog().items.filter(i => (i.at || 0) > seen).length; b.querySelector('em').textContent = n || ''; b.querySelector('em').style.display = n ? '' : 'none'; }
         const c = $('cxCloudDot'); if (c) { const col = { online: '#34d399', offline: '#64748b', locked: '#fbbf24', error: '#f87171', unknown: '#64748b' }[cloud.state]; c.style.background = col; c.style.boxShadow = cloud.state === 'online' ? '0 0 8px #34d399' : 'none'; c.parentElement.title = cloud.state === 'online' ? 'Connected to your server' : cloud.state === 'locked' ? 'Server needs your key' : 'Working from this device only'; }
     }
     function headerButtons() {
@@ -7340,7 +7346,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
             const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
             add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
-            if (h) add('Server is up to date', h.version === 'mk3-r15', h.version || 'older file', h.version === 'mk3-r15' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Server is up to date', h.version === 'mk3-r17', h.version || 'older file', h.version === 'mk3-r17' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
             if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
             const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
             add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
@@ -7468,4 +7474,299 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         new MutationObserver(() => { const m = $('cxSysModal'); if (m && !$('cx13Btn')) { const h = m.querySelector('h3'); if (h) h.insertAdjacentHTML('afterend', `<div style="margin:-4px 0 10px"><button id="cx13Btn" class="cx-btn green sm" onclick="document.getElementById('cxSysModal').remove();CX13.check(false)">✓ Run a full self-check</button> <button class="cx-btn red sm" onclick="document.getElementById('cxSysModal').remove();CX13.purgeModal()">Purge data…</button></div>`); } }).observe(document.body, { childList: true });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 16 (appended; nothing above is changed)
+   Notification centre: the bell opens a panel with Inbox, Reminders and Settings.
+   Opening it marks everything read, so the red dot goes away at once, and the
+   read state syncs, so it goes away on your other devices too.
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, esc, getJ, setJ, toast, todayStr } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v14', e); } };
+    const pad = n => String(n).padStart(2, '0');
+    const HK = 'walletNotifHist', RDK = 'walletNotifRead', RK = 'walletReminders', DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const TAB = { planner: ['#c6f432', 'Planner', '◷'], growth: ['#fb923c', 'Growth', '↗'], fitness: ['#f87171', 'LEVEL//UP', '⚔'], dashboard: ['#00e5ff', 'Dashboard', '◈'], wishlist: ['#a855f7', 'Wishlist', '♥'], media: ['#818cf8', 'Library', '▤'], investments: ['#fbbf24', 'Investments', '◔'], workspace: ['#2dd4bf', 'Workspace', '✎'] };
+    const ICON = i => i.id === 'bills' ? ['#fbbf24', '₹'] : i.id === 'brief' ? ['#00e5ff', '☀'] : i.id === 'mood' ? ['#f472b6', '☺'] : /^wx/.test(i.id) ? ['#38bdf8', '☂'] : /^c/.test(i.id) ? ['#c6f432', '⏰'] : (TAB[i.tab] || TAB.dashboard).slice(0, 1).concat((TAB[i.tab] || TAB.dashboard)[2]);
+    const keyOf = (d, i) => d + ':' + i.id;
+
+    // ---------------------------------------------------------------- data
+    function history() {                                    // today's log folded into a 7-day history
+        const log = getJ('walletNotifLog', { d: '', items: [] }), cut = new Date(Date.now() - 7 * 864e5).toLocaleDateString('en-CA');
+        let h = getJ(HK, []); const before = JSON.stringify(h);
+        if (log.d) (log.items || []).forEach(i => { const k = keyOf(log.d, i), o = h.find(x => x.k === k); if (!o) h.push(Object.assign({ k, d: log.d }, i)); else if ((i.at || 0) > (o.at || 0)) Object.assign(o, i); });
+        h = h.filter(x => x.d >= cut).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 80);
+        if (JSON.stringify(h) !== before) setJ(HK, h);
+        return h;
+    }
+    const readMap = () => getJ(RDK, {});
+    const legacySeen = () => +localStorage.getItem('cxNotifSeen') || 0;
+    function isUnread(i, r) { const v = (r || readMap())[i.k]; if (v === 'x') return false; if ((i.at || 0) <= legacySeen()) return false; if (!v) return true; return /^c/.test(i.id) && v < (i.at || 0) - 60000; }
+    const visible = () => { const r = readMap(); return history().filter(i => r[i.k] !== 'x'); };
+    const unread = () => { const r = readMap(); return history().filter(i => isUnread(i, r)).length; };
+    function markRead(list) { const r = readMap(), now = Date.now(); let ch = false; list.forEach(i => { if (r[i.k] !== 'x' && (!r[i.k] || r[i.k] < (i.at || 0))) { r[i.k] = now; ch = true; } }); if (ch) { prune(r); setJ(RDK, r); } paintBell(); }
+    function prune(r) { const cut = new Date(Date.now() - 8 * 864e5).toLocaleDateString('en-CA'); Object.keys(r).forEach(k => { if (k.slice(0, 10) < cut) delete r[k]; }); }
+    function dismiss(k) { const r = readMap(); r[k] = 'x'; prune(r); setJ(RDK, r); paint(); paintBell(); }
+    function clearAll() { const r = readMap(); history().forEach(i => { r[i.k] = 'x'; }); prune(r); setJ(RDK, r); paint(); paintBell(); }
+
+    // reminders
+    const rems = () => getJ(RK, []);
+    const repTxt = r => r.rep === 'daily' ? 'Every day' : r.rep === 'weekdays' ? 'Mon to Fri' : r.rep === 'weekends' ? 'Sat and Sun' : r.rep === 'once' ? 'Once, ' + (r.date ? new Date(r.date + 'T00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'today') : r.rep === 'monthly' ? 'Monthly on the ' + ord(+r.dom || 1) : (r.days || []).map(d => DAYS[d]).join(', ') || 'No days picked';
+    const ord = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+    function applies(r, d) { const wd = d.getDay(), ds = d.toLocaleDateString('en-CA'); if (r.rep === 'daily') return true; if (r.rep === 'weekdays') return wd > 0 && wd < 6; if (r.rep === 'weekends') return wd === 0 || wd === 6; if (r.rep === 'once') return (r.date || todayStr()) === ds; if (r.rep === 'monthly') return d.getDate() === Math.min(+r.dom || 1, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()); return (r.days || []).includes(wd); }
+    function nextFire(r) {
+        if (!r.on) return null; if (r.snooze && r.snooze > Date.now()) return r.snooze;
+        const [hh, mm] = String(r.time || '09:00').split(':').map(Number);
+        for (let i = 0; i < 400; i++) { const d = new Date(); d.setDate(d.getDate() + i); d.setHours(hh, mm, 0, 0); if (!applies(r, d)) continue; if (i === 0 && (d.getTime() < Date.now() - 30000 || r.last === todayStr())) continue; return d.getTime(); }
+        return null;
+    }
+    function when(ts) {
+        if (!ts) return 'not scheduled'; const d = new Date(ts), now = new Date(), diff = ts - Date.now(), hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        if (diff < 3600e3) return 'in ' + Math.max(1, Math.round(diff / 60000)) + ' min • ' + hm;
+        if (d.toDateString() === now.toDateString()) return 'today ' + hm + ' • in ' + Math.round(diff / 3600e3) + ' h';
+        const tm = new Date(); tm.setDate(tm.getDate() + 1); if (d.toDateString() === tm.toDateString()) return 'tomorrow ' + hm;
+        return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + hm;
+    }
+    function ago(ts) { const s = (Date.now() - ts) / 1000; if (s < 60) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return new Date(ts).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+    function upcoming() {
+        const c = Object.assign({ on: true, morning: '08:00', noon: '13:00', evening: '20:30' }, getJ('walletNotif', {})), out = [];
+        rems().forEach(r => { const t = nextFire(r); if (t && t - Date.now() < 36 * 3600e3) out.push({ t, title: r.title, sub: repTxt(r), custom: true }); });
+        if (c.on) [['morning', 'Morning brief'], ['noon', 'Mood check-in'], ['evening', 'Evening check']].forEach(([k, n]) => { const [h, m] = String(c[k]).split(':').map(Number), d = new Date(); d.setHours(h, m, 0, 0); if (d.getTime() > Date.now()) out.push({ t: d.getTime(), title: n, sub: 'automatic' }); });
+        return out.sort((a, b) => a.t - b.t).slice(0, 4);
+    }
+
+    // ---------------------------------------------------------------- styles
+    const css = document.createElement('style');
+    css.textContent = `
+    #cxNC { position: fixed; z-index: 120; inset: 0; } #cxNC .nc-bg { position: absolute; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(2px); animation: ncFade .18s ease; }
+    #cxNC .nc-p { position: absolute; width: min(430px, calc(100vw - 24px)); max-height: min(78vh, 720px); display: flex; flex-direction: column; border-radius: 18px; background: linear-gradient(180deg, rgba(8,16,28,.98), rgba(3,8,15,.98)); border: 1px solid rgba(0,229,255,.28); box-shadow: 0 24px 70px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.03) inset, 0 0 40px rgba(0,229,255,.08); animation: ncIn .22s cubic-bezier(.2,.9,.3,1.2); overflow: hidden; }
+    @keyframes ncIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } } @keyframes ncFade { from { opacity: 0; } } @keyframes ncUp { from { transform: translateY(40px); opacity: 0; } }
+    #cxNC .nc-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; } #cxNC .nc-h h3 { flex: 1; font: 800 13px 'Oxanium', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #00e5ff; }
+    #cxNC .nc-x { width: 30px; height: 30px; border-radius: 9px; color: #94a3b8; border: 1px solid rgba(255,255,255,.1); font-size: 16px; line-height: 1; } #cxNC .nc-x:hover { color: #fff; border-color: #f87171; }
+    #cxNC .nc-tabs { display: flex; gap: 4px; margin: 0 12px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.04); } #cxNC .nc-tabs button { flex: 1; padding: 7px 6px; border-radius: 9px; font: 700 10.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; transition: .15s; } #cxNC .nc-tabs button.on { background: #00e5ff; color: #001018; } #cxNC .nc-tabs b { margin-left: 4px; padding: 0 5px; border-radius: 6px; background: rgba(239,68,68,.9); color: #fff; font-size: 9.5px; } #cxNC .nc-tabs button.on b { background: #001018; color: #00e5ff; }
+    #cxNC .nc-b { overflow-y: auto; padding: 12px 12px 14px; overscroll-behavior: contain; scrollbar-width: thin; }
+    #cxNC .nc-sec { font: 700 9.5px 'Oxanium', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #64748b; margin: 10px 4px 6px; display: flex; justify-content: space-between; } #cxNC .nc-sec:first-child { margin-top: 0; } #cxNC .nc-sec a { color: #00e5ff; cursor: pointer; letter-spacing: .08em; }
+    #cxNC .nc-i { position: relative; display: flex; gap: 11px; padding: 11px 12px; border-radius: 13px; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.06); margin-bottom: 6px; cursor: pointer; transition: .15s; } #cxNC .nc-i:hover { background: rgba(255,255,255,.05); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+    #cxNC .nc-i.new { background: color-mix(in srgb, var(--c) 7%, rgba(255,255,255,.02)); border-color: color-mix(in srgb, var(--c) 35%, transparent); } #cxNC .nc-i.new::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--c); box-shadow: 0 0 10px var(--c); }
+    #cxNC .nc-ic { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+    #cxNC .nc-t { flex: 1; min-width: 0; } #cxNC .nc-t b { display: block; color: #fff; font-size: 13.5px; font-weight: 700; line-height: 1.3; } #cxNC .nc-t p { color: #a3b1c2; font-size: 12.5px; line-height: 1.45; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } #cxNC .nc-t small { display: block; margin-top: 4px; color: #64748b; font-size: 11px; }
+    #cxNC .nc-d { align-self: flex-start; width: 24px; height: 24px; border-radius: 7px; color: #64748b; font-size: 14px; opacity: .6; } #cxNC .nc-i:hover .nc-d, #cxNC .nc-d:focus { opacity: 1; } #cxNC .nc-d:hover { color: #f87171; background: rgba(248,113,113,.1); }
+    #cxNC .nc-up { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } #cxNC .nc-up::-webkit-scrollbar { display: none; } #cxNC .nc-up div { flex: 0 0 auto; min-width: 128px; padding: 9px 11px; border-radius: 12px; border: 1px dashed rgba(198,244,50,.35); background: rgba(198,244,50,.04); } #cxNC .nc-up b { display: block; font: 700 12px 'Oxanium', sans-serif; color: #c6f432; } #cxNC .nc-up span { display: block; color: #e2e8f0; font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; } #cxNC .nc-up small { color: #64748b; font-size: 10.5px; }
+    #cxNC .nc-empty { text-align: center; padding: 26px 10px; color: #64748b; font-size: 13px; } #cxNC .nc-empty i { display: block; font-style: normal; font-size: 30px; margin-bottom: 6px; opacity: .6; }
+    #cxNC .nc-f { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(198,244,50,.04); border: 1px solid rgba(198,244,50,.22); margin-bottom: 10px; }
+    #cxNC .nc-f input, #cxNC .nc-f select, #cxNC .nc-s input[type=time] { width: 100%; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 9px 11px; color: #fff; font-size: 13.5px; color-scheme: dark; } #cxNC .nc-f input:focus { outline: none; border-color: #c6f432; }
+    #cxNC .nc-row { display: flex; gap: 8px; } #cxNC .nc-row > * { flex: 1; min-width: 0; }
+    #cxNC .nc-chips { display: flex; flex-wrap: wrap; gap: 5px; } #cxNC .nc-chips button { padding: 6px 10px; border-radius: 9px; font-size: 11.5px; font-weight: 600; color: #cbd5e1; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.03); } #cxNC .nc-chips button.on { background: #c6f432; color: #10180a; border-color: #c6f432; }
+    #cxNC .nc-go { padding: 10px; border-radius: 11px; background: #c6f432; color: #10180a; font: 800 11.5px 'Oxanium', sans-serif; letter-spacing: .12em; text-transform: uppercase; } #cxNC .nc-go:hover { filter: brightness(1.1); }
+    #cxNC .nc-r { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 13px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); margin-bottom: 6px; } #cxNC .nc-r.off { opacity: .5; }
+    #cxNC .nc-r .nc-t b { font-size: 13px; } #cxNC .nc-r .nc-t small { color: #c6f432; } #cxNC .nc-r.off .nc-t small { color: #64748b; }
+    #cxNC .nc-sw { flex: 0 0 38px; height: 22px; border-radius: 11px; background: rgba(255,255,255,.12); position: relative; transition: .2s; } #cxNC .nc-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #94a3b8; transition: .2s; } #cxNC .nc-sw.on { background: rgba(198,244,50,.35); } #cxNC .nc-sw.on::after { left: 19px; background: #c6f432; box-shadow: 0 0 8px #c6f432; }
+    #cxNC .nc-mini { padding: 5px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; color: #94a3b8; border: 1px solid rgba(255,255,255,.1); white-space: nowrap; } #cxNC .nc-mini:hover { color: #fff; border-color: #00e5ff; } #cxNC .nc-mini.red:hover { border-color: #f87171; color: #f87171; }
+    #cxNC .nc-s { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.07); margin-bottom: 6px; background: rgba(255,255,255,.02); } #cxNC .nc-s span { flex: 1; font-size: 13px; color: #e2e8f0; } #cxNC .nc-s small { display: block; color: #64748b; font-size: 11.5px; } #cxNC .nc-s input[type=time] { width: 112px; padding: 6px 8px; }
+    #cxNC .nc-perm { padding: 11px 12px; border-radius: 12px; margin-bottom: 10px; font-size: 12.5px; display: flex; gap: 10px; align-items: center; } #cxNC .nc-perm.ok { background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.3); color: #a7f3d0; } #cxNC .nc-perm.no { background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.3); color: #fde68a; } #cxNC .nc-perm span { flex: 1; }
+    #cxBell em { transition: transform .2s; } #cxBell.ring svg { animation: ncRing 1s ease 2; transform-origin: 50% 10%; } @keyframes ncRing { 0%,100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-4deg); } }
+    @media (max-width: 640px) { #cxNC .nc-p { left: 8px !important; right: 8px !important; top: auto !important; bottom: 8px; width: auto; max-height: 82vh; animation: ncUp .25s cubic-bezier(.2,.9,.3,1); } }
+    @media (prefers-reduced-motion: reduce) { #cxNC *, #cxBell svg { animation: none !important; } }
+    `;
+    document.head.appendChild(css);
+
+    // ---------------------------------------------------------------- panel
+    let tab = 'inbox', fresh = new Set(), form = { rep: 'daily', days: [] };
+    function open(t) {
+        tab = t || 'inbox'; close();
+        const all = visible(), r = readMap(); fresh = new Set(all.filter(i => isUnread(i, r)).map(i => i.k));
+        document.body.insertAdjacentHTML('beforeend', `<div id="cxNC" role="dialog" aria-label="Notifications"><div class="nc-bg"></div><div class="nc-p"><div class="nc-h"><h3>Notifications</h3><button class="nc-x" aria-label="Close" onclick="CXN.close()">✕</button></div><div class="nc-tabs" id="ncTabs"></div><div class="nc-b" id="ncBody"></div></div></div>`);
+        const p = document.querySelector('#cxNC .nc-p'), bell = $('cxBell');
+        if (bell && innerWidth > 640) { const b = bell.getBoundingClientRect(); p.style.top = Math.round(b.bottom + 10) + 'px'; p.style.right = Math.max(12, Math.round(innerWidth - b.right - 8)) + 'px'; } else { p.style.top = '70px'; p.style.right = '12px'; }
+        document.querySelector('#cxNC .nc-bg').onclick = close;
+        paint(); markRead(all);                                 // seen = read: the dot goes away now, here and on your other devices
+    }
+    function close() { const m = $('cxNC'); if (m) m.remove(); }
+    function paint() {
+        const body = $('ncBody'); if (!body) return; const list = visible(), rl = rems();
+        $('ncTabs').innerHTML = [['inbox', 'Inbox', fresh.size], ['rem', 'Reminders', rl.filter(r => r.on).length], ['set', 'Settings', 0]].map(([k, n, c]) => `<button class="${tab === k ? 'on' : ''}" onclick="CXN.tab('${k}')">${n}${c ? `<b>${c}</b>` : ''}</button>`).join('');
+        if (tab === 'inbox') {
+            const up = upcoming(), td = todayStr(), news = list.filter(i => fresh.has(i.k)), today = list.filter(i => !fresh.has(i.k) && i.d === td), older = list.filter(i => !fresh.has(i.k) && i.d !== td);
+            const card = i => { const [c, g] = ICON(i); return `<div class="nc-i ${fresh.has(i.k) ? 'new' : ''}" style="--c:${c}" onclick="CXN.go('${esc(i.k)}')"><div class="nc-ic">${g}</div><div class="nc-t"><b>${esc(i.t)}</b><p>${esc(i.b || '')}</p><small>${ago(i.at || Date.now())} • ${esc((TAB[i.tab] || TAB.dashboard)[1])}</small></div><button class="nc-d" title="Dismiss" aria-label="Dismiss" onclick="event.stopPropagation();CXN.dismiss('${esc(i.k)}')">✕</button></div>`; };
+            body.innerHTML = (up.length ? `<div class="nc-sec">Coming up</div><div class="nc-up">${up.map(u => `<div><b>${when(u.t).split(' • ')[0]}</b><span>${esc(u.title)}</span><small>${esc(u.sub)}</small></div>`).join('')}</div>` : '')
+                + (news.length ? `<div class="nc-sec">New <a onclick="CXN.clear()">Clear all</a></div>${news.map(card).join('')}` : '')
+                + (today.length ? `<div class="nc-sec">Earlier today${news.length ? '' : ' <a onclick="CXN.clear()">Clear all</a>'}</div>${today.map(card).join('')}` : '')
+                + (older.length ? `<div class="nc-sec">This week</div>${older.map(card).join('')}` : '')
+                + (!list.length ? `<div class="nc-empty"><i>✓</i>You're all caught up, sir.<br><span style="font-size:12px">Reminders and alerts land here.</span></div>` : '');
+        } else if (tab === 'rem') {
+            const sorted = rl.slice().sort((a, b) => (nextFire(a) || 9e15) - (nextFire(b) || 9e15));
+            const reps = [['once', 'Once'], ['daily', 'Daily'], ['weekdays', 'Weekdays'], ['weekends', 'Weekends'], ['days', 'Pick days'], ['monthly', 'Monthly']];
+            const nh = new Date(Date.now() + 3600e3);
+            body.innerHTML = `<div class="nc-f"><input id="ncT" placeholder="Remind me to…" maxlength="80" onkeydown="if(event.key==='Enter')CXN.add()">
+                <div class="nc-row"><input id="ncH" type="time" value="${pad(nh.getHours())}:00"><select id="ncTab">${Object.keys(TAB).map(k => `<option value="${k}" ${k === 'planner' ? 'selected' : ''}>Opens ${TAB[k][1]}</option>`).join('')}</select></div>
+                <div class="nc-chips">${reps.map(([k, n]) => `<button type="button" class="${form.rep === k ? 'on' : ''}" onclick="CXN.rep('${k}')">${n}</button>`).join('')}</div>
+                ${form.rep === 'days' ? `<div class="nc-chips">${DAYS.map((d, i) => `<button type="button" class="${form.days.includes(i) ? 'on' : ''}" onclick="CXN.day(${i})">${d}</button>`).join('')}</div>` : ''}
+                ${form.rep === 'once' ? `<input id="ncD" type="date" value="${todayStr()}">` : ''}${form.rep === 'monthly' ? `<input id="ncM" type="number" min="1" max="31" value="1" placeholder="Day of the month">` : ''}
+                <input id="ncN" placeholder="Note (optional)" maxlength="140"><button class="nc-go" onclick="CXN.add()">Add reminder</button>
+                <div class="nc-chips" style="margin-top:2px">${[['Drink water', '11:00', 'daily'], ['Pay rent', '09:00', 'monthly'], ['Workout', '18:00', 'weekdays'], ['Review spending', '20:00', 'weekends'], ['Log expenses', '21:30', 'daily']].map(p => `<button type="button" onclick="CXN.preset('${p[0]}','${p[1]}','${p[2]}')">+ ${p[0]}</button>`).join('')}</div></div>
+                ${sorted.length ? sorted.map(r => { const nf = nextFire(r); return `<div class="nc-r ${r.on ? '' : 'off'}"><button class="nc-sw ${r.on ? 'on' : ''}" aria-label="On or off" onclick="CXN.set('${r.id}','on',${!r.on})"></button><div class="nc-t"><b>${esc(r.title)}</b><p style="-webkit-line-clamp:1">${esc(repTxt(r))} at ${esc(r.time)}${r.note ? ' • ' + esc(r.note) : ''}</p><small>${r.on ? (r.snooze && r.snooze > Date.now() ? 'snoozed • ' : '') + 'next ' + when(nf) : 'off'}</small></div><div style="display:flex;flex-direction:column;gap:4px"><button class="nc-mini" onclick="CXN.snooze('${r.id}',60)" title="Remind me in an hour instead">+1 h</button><button class="nc-mini red" onclick="CXN.del('${r.id}')">Delete</button></div></div>`; }).join('') : '<div class="nc-empty"><i>⏰</i>No reminders of your own yet.<br><span style="font-size:12px">Add one above, or tap a quick one.</span></div>'}`;
+            setTimeout(() => { const t = $('ncT'); if (t && innerWidth > 640) t.focus(); }, 30);
+        } else {
+            const c = Object.assign({ on: true, morning: '08:00', noon: '13:00', evening: '20:30', kinds: {} }, getJ('walletNotif', {})), k = Object.assign({ brief: true, tasks: true, habits: true, mood: true, fitness: true, bills: true }, c.kinds || {});
+            const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+            body.innerHTML = `<div class="nc-perm ${perm === 'granted' ? 'ok' : 'no'}"><span>${perm === 'granted' ? 'Pop-up notifications are allowed on this device.' : perm === 'denied' ? 'Pop-ups are blocked for this site. Allow them in the browser’s site settings (the lock icon by the address).' : perm === 'unsupported' ? 'This browser cannot show pop-up notifications; they still appear here.' : 'Allow pop-ups so reminders reach you outside the page.'}</span>${perm === 'default' ? '<button class="nc-mini" onclick="CXN.allow()">Allow</button>' : ''}${perm === 'granted' ? '<button class="nc-mini" onclick="CXSys.testNotif()">Test</button>' : ''}</div>
+                <div class="nc-s"><span><b style="color:#fff">All reminders</b><small>Switch everything off for a while</small></span><button class="nc-sw ${c.on ? 'on' : ''}" onclick="CXSys.nset('on',${!c.on});CXN.tab('set')"></button></div>
+                <div class="nc-sec">Automatic, worked out from your data</div>
+                ${[['brief', 'Morning brief', 'Tasks, safe-to-spend and habits', 'morning'], ['bills', 'Bills due tomorrow', 'From recurring expenses', 'morning'], ['tasks', 'Planner tasks', 'Due today and overdue', 'morning'], ['mood', 'Mood check-in', 'If you have not logged it', 'noon'], ['habits', 'Open habits', 'Evening nudge', 'evening'], ['fitness', 'LEVEL//UP quest', 'If you have not trained', 'evening']].map(([id, n, s, t]) => `<div class="nc-s"><span>${n}<small>${s} • ${t === 'morning' ? c.morning : t === 'noon' ? c.noon : c.evening}</small></span><button class="nc-sw ${k[id] ? 'on' : ''}" onclick="CXSys.nkind('${id}',${!k[id]});CXN.tab('set')"></button></div>`).join('')}
+                <div class="nc-sec">Times</div>
+                ${[['morning', 'Morning'], ['noon', 'Midday'], ['evening', 'Evening']].map(([id, n]) => `<div class="nc-s"><span>${n}</span><input type="time" value="${esc(c[id])}" onchange="CXSys.nset('${id}',this.value);CXN.tab('set')"></div>`).join('')}
+                <p style="font-size:11.5px;color:#64748b;margin:10px 4px 0;line-height:1.5">Reminders fire while the app is open in a tab or installed on your phone. A fully closed browser cannot be woken by a web page. Read and dismissed alerts stay that way on all your devices.</p>`;
+        }
+    }
+    function go(k) { const i = history().find(x => x.k === k); close(); if (!i) return; if (i.tab === 'fitness') window.open('fitness/index.html', '_blank'); else safe(() => switchMainView(i.tab || 'dashboard')); }
+    function saveR(l) { setJ(RK, l); paint(); }
+    function add(pre) {
+        const r = pre || { title: ($('ncT').value || '').trim(), time: $('ncH').value, rep: form.rep, days: form.days.slice(), date: form.rep === 'once' ? (($('ncD') || {}).value || todayStr()) : '', dom: form.rep === 'monthly' ? Math.max(1, Math.min(31, +(($('ncM') || {}).value) || 1)) : 0, note: ($('ncN').value || '').trim(), tab: $('ncTab').value };
+        if (!r.title) { toast('Tell me what to remind you of, sir.', true); return $('ncT') && $('ncT').focus(); } if (!r.time) return toast('Pick a time.', true); if (r.rep === 'days' && !r.days.length) return toast('Pick at least one day.', true);
+        const l = rems(); l.push(Object.assign({ id: String(Date.now()) + Math.floor(Math.random() * 99), on: true, last: '', snooze: 0, note: '', tab: 'planner' }, r));
+        // a time already past today means the next one, not right now
+        const it = l[l.length - 1], [hh, mm] = it.time.split(':').map(Number), d = new Date(); d.setHours(hh, mm, 0, 0); if (d.getTime() < Date.now() - 30000 && it.rep !== 'once') it.last = todayStr();
+        if (it.rep === 'once' && it.date === todayStr() && d.getTime() < Date.now() - 30000) { const t = new Date(); t.setDate(t.getDate() + 1); it.date = t.toLocaleDateString('en-CA'); }
+        saveR(l); toast('Reminder set: ' + it.title + ' • ' + when(nextFire(it)));
+        if ('Notification' in window && Notification.permission === 'default') safe(() => Notification.requestPermission().then(() => paint()));
+    }
+    function paintBell() {
+        const b = $('cxBell'); if (!b) return; const n = unread(), em = b.querySelector('em'); if (!em) return;
+        em.textContent = n > 9 ? '9+' : n || ''; em.style.display = n ? '' : 'none'; b.title = n ? n + ' new notification' + (n > 1 ? 's' : '') : 'Notifications';
+        b.setAttribute('aria-label', b.title); if (n > (paintBell.last || 0)) { b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); } paintBell.last = n;
+    }
+    function hook() { const b = $('cxBell'); if (b && !b.dataset.nc) { b.dataset.nc = '1'; b.setAttribute('onclick', 'CXN.open()'); } paintBell(); }
+
+    window.CXN = {
+        open, close, unread, paintBell, history, upcoming, nextFire,
+        tab: t => { tab = t; paint(); }, go, dismiss, clear: clearAll, add: () => add(), preset: (title, time, rep) => add({ title, time, rep, days: [], date: rep === 'once' ? todayStr() : '', dom: rep === 'monthly' ? 1 : 0, note: '', tab: 'planner' }),
+        rep: r => { form.rep = r; if (r !== 'days') form.days = []; const keep = { t: ($('ncT') || {}).value, h: ($('ncH') || {}).value, n: ($('ncN') || {}).value }; paint(); if ($('ncT')) { $('ncT').value = keep.t || ''; $('ncH').value = keep.h || $('ncH').value; $('ncN').value = keep.n || ''; } },
+        day: d => { form.days = form.days.includes(d) ? form.days.filter(x => x !== d) : form.days.concat(d).sort(); const keep = { t: ($('ncT') || {}).value, h: ($('ncH') || {}).value }; paint(); if ($('ncT')) { $('ncT').value = keep.t || ''; $('ncH').value = keep.h; } },
+        set: (id, k, v) => { const l = rems(), r = l.find(x => x.id === id); if (!r) return; r[k] = v; if (k === 'on' && v) { r.snooze = 0; } saveR(l); },
+        snooze: (id, min) => { const l = rems(), r = l.find(x => x.id === id); if (!r) return; r.snooze = Date.now() + min * 60000; r.on = true; saveR(l); toast('Next one in ' + (min >= 60 ? min / 60 + ' h' : min + ' min') + ', sir.'); },
+        del: id => { if (!confirm('Delete this reminder?')) return; saveR(rems().filter(x => x.id !== id)); },
+        allow: async () => { try { await Notification.requestPermission(); } catch (e) {} paint(); }
+    };
+    // old entry points lead to the new panel
+    const sysOpen = window.CXSys && CXSys.open; if (sysOpen) CXSys.open = function (t) { if (t === 'remind') return open('inbox'); return sysOpen.apply(this, arguments); };
+
+    const start = () => {
+        hook(); setInterval(() => safe(hook), 3000);
+        window.addEventListener('storage', e => { if (/^(walletNotif|walletReminders)/.test(e.key || '')) { safe(paintBell); if ($('cxNC')) safe(paint); } });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        setInterval(() => { if ($('cxNC') && tab !== 'rem') safe(paint); }, 30000);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 17 (appended; nothing above is changed)
+   C.A.S.P.E.R. Capture: the bookmark pipeline, built the way you described it
+   1 click the bookmark on any shop or title page
+   2 it reads the address, title, picture (og:image / product data) and price right there
+   3 a small window opens on your server: -auto saves at once and closes itself,
+     the plain route shows a form when the price or title is missing
+   4 the server files it (Wishlist, or Library with isMedia and Movie/Series/Anime/Book
+     from the address) and every open device gets it within a second
+   One smart bookmark decides Wishlist or Library by the site; the two fixed ones stay too.
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX || !window.CX8 || !CX8.bookmarklet) return;
+    const { $, esc, toast, getJ, setJ } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v15', e); } };
+    const linked = () => !!localStorage.getItem('walletCloudLinked') && /^https?:/.test(location.protocol);
+    const capKey = () => localStorage.getItem('cxCaptureKey') || '';
+    const apiRoot = () => { try { return new URL(API_BASE, location.href).href.replace(/\/$/, ''); } catch (e) { return ''; } };
+    const MEDIA_SITES = 'imdb\\.|goodreads|myanimelist|anilist|letterboxd|netflix|primevideo|hotstar|jiocinema|crunchyroll|tvmaze|themoviedb|trakt\\.tv|audible|storygraph|rottentomatoes|justwatch|mubi|sonyliv|zee5|kitsu\\.|anime-planet|openlibrary|wattpad|webtoons|mangadex';
+
+    // ---------------------------------------------------------------- the bookmark code
+    const prev = CX8.bookmarklet;                      // the page reader built earlier (server mode when linked)
+    function build(kind) {
+        const base = prev(kind === 'm' ? 'm' : 'w');
+        if (!linked()) return base;                     // not linked to a server yet: the on-device hand-over keeps working
+        let src; try { src = decodeURIComponent(base.slice(11)); } catch (e) { return base; }
+        const cut = src.indexOf('var ok='); if (cut < 0) return base;
+        const tail = `var MH=/${MEDIA_SITES}/i.test(location.hostname)||/\\/gp\\/video\\/|\\/title\\/tt\\d/.test(location.pathname)||/Movie|Book|TVSeries|TVSeason|TVEpisode|CreativeWork/.test(o.ty||'');` +
+            `var M=${kind === 'm' ? 'true' : kind === 's' ? 'MH' : 'false'},ok=o.t&&(M||o.p>0),U=S+(M?'/bookmark-media':'/bookmark')+(ok?'-auto':'')+'?'+Q,w=null;` +
+            `try{w=window.open(U,'casper_save','width=440,height=660,left='+Math.max(0,(screen.availWidth||1200)-480)+',top=60')}catch(e){}if(!w)location.href=U;})();`;
+        return 'javascript:' + encodeURIComponent(src.slice(0, cut) + tail);
+    }
+    CX8.bookmarklet = build;
+
+    // ---------------------------------------------------------------- panel
+    const css = document.createElement('style');
+    css.textContent = `
+    .cx15 { position: relative; overflow: hidden; margin-bottom: 18px; border-color: color-mix(in srgb, var(--c15) 45%, transparent) !important; }
+    .cx15::after { content: ''; position: absolute; inset: auto -20% -60% auto; width: 340px; height: 340px; background: radial-gradient(circle, color-mix(in srgb, var(--c15) 18%, transparent), transparent 70%); pointer-events: none; }
+    .cx15 h3 { font: 800 13px 'Oxanium', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--c15); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .cx15 .pill { font: 700 9.5px 'Oxanium', sans-serif; letter-spacing: .1em; padding: 3px 8px; border-radius: 20px; } .cx15 .pill.ok { color: #34d399; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.35); } .cx15 .pill.no { color: #fbbf24; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.35); }
+    .cx15 .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; counter-reset: s; }
+    .cx15 .flow div { position: relative; padding: 11px 12px 11px 38px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); font-size: 12px; color: #cbd5e1; line-height: 1.4; counter-increment: s; }
+    .cx15 .flow div::before { content: counter(s); position: absolute; left: 10px; top: 11px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 800 11px 'Oxanium', sans-serif; color: #000; background: var(--c15); }
+    .cx15 .flow b { display: block; color: #fff; font-size: 12.5px; margin-bottom: 1px; }
+    .cx15 .marks { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .cx15 .mark { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; font: 800 11.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: grab; text-decoration: none; transition: .15s; border: 1px dashed currentColor; }
+    .cx15 .mark.main { background: var(--c15); color: #001018; border-style: solid; box-shadow: 0 0 22px color-mix(in srgb, var(--c15) 45%, transparent); } .cx15 .mark.sub { color: var(--c15); background: rgba(0,0,0,.35); }
+    .cx15 .mark:hover { transform: translateY(-1px); } .cx15 .mark:active { cursor: grabbing; }
+    .cx15 .tiny { font-size: 12px; color: #94a3b8; } .cx15 .tiny b { color: #e2e8f0; }
+    .cx15 .recent { margin-top: 14px; display: grid; gap: 6px; } .cx15 .recent a { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.06); text-decoration: none; }
+    .cx15 .recent img, .cx15 .recent i { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; flex: none; background: rgba(255,255,255,.06); display: grid; place-items: center; font-style: normal; color: var(--c15); }
+    .cx15 .recent span { flex: 1; min-width: 0; font-size: 12.5px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cx15 .recent small { color: #64748b; font-size: 11px; white-space: nowrap; } .cx15 .recent em { font-style: normal; color: var(--c15); font: 700 12px 'Oxanium', sans-serif; }
+    .cx15 details { margin-top: 12px; } .cx15 summary { cursor: pointer; font: 700 10.5px 'Oxanium', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #94a3b8; list-style: none; } .cx15 summary::before { content: '▸ '; } .cx15 details[open] summary::before { content: '▾ '; }
+    .cx15 .how { font-size: 12.5px; color: #cbd5e1; line-height: 1.65; margin-top: 8px; } .cx15 .how b { color: #fff; } .cx15 .how code { font-size: 11.5px; color: var(--c15); background: rgba(0,0,0,.4); padding: 1px 5px; border-radius: 5px; word-break: break-all; }
+    @media (max-width: 760px) { .cx15 .flow { grid-template-columns: 1fr 1fr; } }
+    `;
+    document.head.appendChild(css);
+
+    const ago = ts => { const s = (Date.now() - ts) / 1000; return s < 3600 ? Math.max(1, Math.round(s / 60)) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+    function captured() { return wishlistItems.concat(mediaItems.map(m => Object.assign({ isMedia: true }, m))).filter(x => x.source === 'bookmark').sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); }
+    function panel(k) {
+        const media = k === 'm', col = media ? '#a855f7' : '#00e5ff', on = linked() && !!capKey(), where = media ? 'Library' : 'Wishlist';
+        const rec = captured().filter(x => !!x.isMedia === media).slice(0, 4);
+        return `<div class="glass-panel p-5 md:p-6 cx15" id="cx15_${k}" style="--c15:${col}">
+            <h3>⇪ C.A.S.P.E.R. Capture <span class="pill ${on ? 'ok' : 'no'}">${on ? 'SERVER MODE • SAVES WITHOUT OPENING THE APP' : linked() ? 'SIGN IN AGAIN TO GET THE CAPTURE KEY' : 'NOT LINKED: HANDS ITEMS TO THE OPEN APP'}</span></h3>
+            <div class="flow"><div><b>Click the bookmark</b>on any ${media ? 'IMDb, Goodreads or MyAnimeList' : 'Amazon, Flipkart or Myntra'} page</div><div><b>It reads the page</b>title, ${media ? 'poster, type, genre' : 'price, picture, brand'} — inside your browser, so shops can't block it</div><div><b>Your server saves it</b>${media ? 'Library, typed Movie / Series / Anime / Book' : 'Wishlist; a form asks for anything missing'}</div><div><b>The window closes</b>and it appears on every open device in about a second</div></div>
+            <div class="marks"><a class="mark main" href="${build('s')}" onclick="event.preventDefault();CX.toast('Drag this button onto your bookmarks bar, sir. Clicking it here does nothing.')" title="Drag me to the bookmarks bar">⇪ Send to C.A.S.P.E.R.</a><a class="mark sub" href="${build(k)}" onclick="event.preventDefault();CX.toast('Drag this one to the bookmarks bar.')">⇪ ${where} only</a>
+                <button class="cx-btn sm" onclick="CX15.copy('s')">Copy for phone</button><button class="cx-btn sm" onclick="CX15.test('${k}')">Try the save window</button></div>
+            <p class="tiny" style="margin-top:10px"><b>Send to C.A.S.P.E.R.</b> picks the place itself: film, series, anime and book sites go to the Library, everything else to the Wishlist. Laptop: show the bookmarks bar (<b>Ctrl + Shift + B</b>) and drag the button onto it. Phone: copy, bookmark any page, edit that bookmark and paste the code as its address; on a product page, type its name in the address bar and tap it.${on ? '' : ' <b style="color:#fbbf24">Re-drag after signing in</b>, so the bookmark carries your capture key.'}</p>
+            ${rec.length ? `<div class="recent"><p class="cx-lbl" style="margin:0">Recently captured</p>${rec.map(x => `<a href="${esc(x.link || '#')}" target="_blank" rel="noopener">${x.imageUrl ? `<img src="${esc(x.imageUrl)}" alt="" loading="lazy" onerror="this.outerHTML='<i>⇪</i>'">` : '<i>⇪</i>'}<span>${esc(x.title)}</span>${!media && x.price ? `<em>₹${Number(x.price).toLocaleString('en-IN')}</em>` : media ? `<em>${esc(x.wishCategory || '')}</em>` : ''}<small>${ago(x.timestamp || Date.now())}</small></a>`).join('')}</div>` : ''}
+            <details><summary>How it works, in detail</summary><div class="how">
+                <p><b>1. The bookmark</b> is a little JavaScript stored as a bookmark address. Clicking it runs on the page you are viewing: it takes the address, the product's own data block (schema.org), the <code>og:image</code> picture, the title, and looks for the price in the page's price tags, then the visible ₹ amount.</p>
+                <p><b>2. The hand-over:</b> it opens a small window at <code>${esc(apiRoot())}/bookmark${media ? '-media' : ''}-auto?url=…&amp;title=…&amp;image=…&amp;price=…&amp;key=…</code>. If your browser blocks the window, the same tab goes there and comes back after saving.</p>
+                <p><b>3. The server:</b> <code>-auto</code> saves straight away and the window closes. ${media ? 'Library items get <code>isMedia</code> and a type from the address (Goodreads → Book, MyAnimeList → Anime, /tv/ or a series → Series, else Movie).' : 'If there was no price, the plain route shows a form to type it (and reads the page again on the server to pre-fill what it can).'} The same link saved twice is not doubled. The key in the bookmark can only add items; it cannot read or change anything else.</p>
+                <p><b>4. Your devices:</b> the server tells every open copy of the app at once; anything closed picks it up when it opens. Items show here under Recently captured.</p></div></details></div>`;
+    }
+    function paint() {
+        ['w', 'm'].forEach(k => {
+            const view = $(k === 'm' ? 'viewMedia' : 'viewWishlist'); if (!view) return;
+            const h = panel(k), cur = $('cx15_' + k), sig = h.replace(/\d+ (min|h) ago/g, '');
+            if (!cur) { view.insertAdjacentHTML('afterbegin', h); $('cx15_' + k).dataset.sig = sig; }
+            else if (cur.dataset.sig !== sig) { const open = cur.querySelector('details') && cur.querySelector('details').open; cur.outerHTML = h; const n = $('cx15_' + k); n.dataset.sig = sig; if (open) n.querySelector('details').open = true; }
+        });
+    }
+
+    // ---------------------------------------------------------------- arrivals
+    let known = null;
+    function arrivals() {
+        const list = captured(); if (known === null) { known = new Set(list.map(x => String(x.id))); return; }
+        list.filter(x => !known.has(String(x.id))).forEach(x => {
+            known.add(String(x.id)); if (Date.now() - (x.timestamp || 0) > 10 * 60000) return;
+            toast(`Captured to ${x.isMedia ? 'Library' : 'Wishlist'}: ${x.title}${!x.isMedia && x.price ? ' • ₹' + Number(x.price).toLocaleString('en-IN') : ''}`);
+            try { const d = new Date().toLocaleDateString('en-CA'), log = getJ('walletNotifLog', { d: '', items: [] }), cur = log.d === d ? log : { d, items: [] }; cur.items.unshift({ id: 'cap' + x.id, tab: x.isMedia ? 'media' : 'wishlist', t: 'Captured: ' + x.title, b: (x.isMedia ? 'Library • ' + (x.wishCategory || '') : 'Wishlist' + (x.price ? ' • ₹' + Number(x.price).toLocaleString('en-IN') : ' • price missing')), at: Date.now() }); cur.items = cur.items.slice(0, 40); setJ('walletNotifLog', cur); window.CXN && CXN.paintBell(); } catch (e) {}
+        });
+    }
+
+    window.CX15 = {
+        build,
+        copy: k => { const c = build(k); (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject()).then(() => toast('Bookmark code copied. Bookmark any page, edit it, and paste this as the address.')).catch(() => prompt('Copy this and save it as a bookmark address:', c)); },
+        test: k => { if (!linked() || !capKey()) return toast('Link the cloud and sign in first, sir.', true); const u = apiRoot() + '/bookmark' + (k === 'm' ? '-media' : '') + '?key=' + encodeURIComponent(capKey()) + '&url=' + encodeURIComponent('https://example.com/test-item') + '&title=' + encodeURIComponent('Test item (press Save only if you want it)'); window.open(u, 'casper_save', 'width=440,height=660'); }
+    };
+    const start = () => { safe(paint); safe(arrivals); setInterval(() => { if (!document.hidden) { safe(paint); safe(arrivals); } }, 2500); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1200)); else setTimeout(start, 1200);
 })();

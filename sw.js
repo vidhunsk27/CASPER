@@ -1,6 +1,6 @@
 // Wally MK 3 service worker: makes the app installable and keeps a copy of its own
 // files so it opens without a connection. Network first, so updates always win.
-const CACHE = 'wally-mk3-v5';
+const CACHE = 'wally-mk3-v7';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {

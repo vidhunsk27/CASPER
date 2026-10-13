@@ -54,6 +54,39 @@ let store;
 try { store = process.env.FIREBASE_SERVICE_ACCOUNT ? firestoreStore() : fileStore(); }
 catch (e) { console.error('Firestore could not start, falling back to the local file:', e.message); store = fileStore(); }
 
+// ----------------------------------------------------------------------------- encryption at rest
+// Every record is compressed and sealed with AES-256-GCM before it reaches Firestore (or the file), so
+// the database holds only unreadable blobs: anyone who sees the database cannot read your money data,
+// and any tampering is detected. The key comes from DATA_KEY, or WALLY_KEY when DATA_KEY is not set.
+// Keep that value forever: if it changes, the old records cannot be opened (they are kept, not deleted).
+// Older plain records are still read and are sealed automatically the first time they are loaded.
+const zlibRest = require('zlib'), nodeCrypto = require('crypto');
+const DKEY_SRC = process.env.ENCRYPT === 'off' ? '' : (process.env.DATA_KEY || KEY);
+const DKEY = DKEY_SRC ? nodeCrypto.scryptSync(DKEY_SRC, 'wally-mk3-data-v1', 32) : null;
+const encStat = { on: !!DKEY, unreadable: 0, sealed: 0 };
+function sealed(inner) {
+  if (!DKEY) return inner;
+  const enc = v => { const iv = nodeCrypto.randomBytes(12), c = nodeCrypto.createCipheriv('aes-256-gcm', DKEY, iv); const ct = Buffer.concat([c.update(zlibRest.deflateRawSync(Buffer.from(JSON.stringify(v), 'utf8'))), c.final()]); return { _enc: 2, d: Buffer.concat([iv, c.getAuthTag(), ct]).toString('base64') }; };
+  const dec = v => { const b = Buffer.from(v.d, 'base64'), d = nodeCrypto.createDecipheriv('aes-256-gcm', DKEY, b.subarray(0, 12)); d.setAuthTag(b.subarray(12, 28)); return JSON.parse(zlibRest.inflateRawSync(Buffer.concat([d.update(b.subarray(28)), d.final()])).toString('utf8')); };
+  const isSealed = v => v && typeof v === 'object' && v._enc === 2 && typeof v.d === 'string';
+  const open = v => { if (!isSealed(v)) return v; try { return dec(v); } catch (e) { encStat.unreadable++; return undefined; } };
+  return {
+    kind: inner.kind,
+    async entries(col) {
+      const out = [], plain = [];
+      for (const [id, v] of await inner.entries(col)) { const x = open(v); if (x === undefined) continue; out.push([id, x]); if (!isSealed(v) && x != null) plain.push([id, x]); }
+      (async () => { for (let i = 0; i < plain.length; i += 20) await Promise.all(plain.slice(i, i + 20).map(([id, x]) => inner.set(col, id, enc(x)).then(() => encStat.sealed++).catch(() => {}))); })();
+      return out;
+    },
+    async all(col) { return (await this.entries(col)).map(e => e[1]); },
+    async get(col, id) { const v = await inner.get(col, id); if (v == null) return null; const x = open(v); return x === undefined ? null : x; },
+    async set(col, id, val) { return inner.set(col, id, enc(val)); },
+    async del(col, id) { return inner.del(col, id); }
+  };
+}
+store = sealed(store);
+const inParallel = async (list, fn, n) => { for (let i = 0; i < list.length; i += (n || 20)) await Promise.all(list.slice(i, i + (n || 20)).map(fn)); };
+
 // ----------------------------------------------------------------------------- memory copy + live updates
 // The server keeps each list in memory after the first read and writes every change through to the
 // database. Reads then cost nothing, so devices can check for changes every few seconds without using
@@ -86,10 +119,28 @@ const sendFast = (req, res, obj) => { const raw = Buffer.from(JSON.stringify(obj
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server error' }); });
 
 const AI = process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : '';
-const VERSION = 'mk3-r15';
+const VERSION = 'mk3-r17';
 // purge epoch: after a purge, anything older than this moment is refused, so a device that was offline cannot bring wiped data back
 let epoch = { at: 0, scope: '' };
-const epochLoaded = Promise.resolve().then(() => store.get('meta', 'epoch')).then(v => { if (v && v.at) epoch = v; }).catch(() => {});
+let purging = false;
+// one-time clean ledger for round 16 (you asked for every ledger entry to go): runs once per database, then never again.
+// Set LEDGER_RESET=off in Render before deploying if you ever need to skip it.
+const RESET_ID = 'r16-ledger';
+async function wipeScope(scope) {
+  purging = true;
+  try {
+    epoch = { at: Date.now(), scope }; await store.set('meta', 'epoch', epoch);          // first: from this moment nothing older can come back
+    const cols = scope === 'ledger' ? ['transactions'] : ['transactions', 'wishlist', 'state', 'inbox', 'deleted']; let n = 0;
+    for (const c of cols) { const ids = await store.ids(c); await inParallel(ids, id => store.del(c, id)); n += ids.length; }
+    if (scope === 'ledger') { const ids = (await store.ids('deleted')).filter(id => String(id).indexOf('tx:') === 0); await inParallel(ids, id => store.del('deleted', id)); n += ids.length; }
+    else await store.del('meta', 'workspace').catch(() => {});
+    epoch = { at: Date.now(), scope }; await store.set('meta', 'epoch', epoch);          // and again at the end, so a push that slipped in while deleting is refused too
+    console.log('Purge (' + scope + '): removed ' + n + ' records'); return n;
+  } finally { purging = false; }
+}
+const epochLoaded = Promise.resolve().then(() => store.get('meta', 'epoch')).then(v => { if (v && v.at) epoch = v; }).catch(() => {})
+  .then(async () => { if (process.env.LEDGER_RESET === 'off') return; try { if (await store.get('meta', RESET_ID)) return; const n = await wipeScope('ledger'); await store.set('meta', RESET_ID, { at: Date.now(), removed: n }); console.log('One-time ledger reset done.'); } catch (e) { console.error('Ledger reset failed:', e.message); } })
+  .then(async () => { if (!DKEY) return; for (const c of ['transactions', 'wishlist', 'state', 'inbox', 'deleted', 'meta']) { try { await store.all(c); } catch (e) {} } });   // loading each list seals any old plain records straight away
 const stale = m => epoch.at && (+m || 0) < epoch.at;
 app.get('/api/health', (req, res) => { const pub = { ok: true, time: Date.now(), gate: gateOn(), version: VERSION, lock: 3 }; if (gateOn() && !signedIn(req) && !hasKey(req)) return res.json(pub); res.json(Object.assign(pub, { store: store.kind, locked: !!KEY, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false })); });   // details only for you
 // ---------------------------------------------------------------------------
@@ -146,6 +197,7 @@ const CAPTURE = KEY || PASS ? crypto.createHmac('sha256', KEY || PASS).update('w
 const hasCapture = req => !!CAPTURE && same(req.get('x-wally-key') || req.query.key || (req.body && req.body.key) || '', CAPTURE);
 const CAPTURE_ONLY = /^\/(bookmark-auto|bookmark-media-auto|sms)$/, CAPTURE_FORM = /^\/(bookmark|bookmark-media)$/;
 app.get('/api/capture-key', (req, res, next) => { if (signedIn(req) || hasKey(req)) return res.json({ key: CAPTURE }); res.status(401).json({ error: 'key required' }); });
+app.use(/^\/api\/bookmark(-media)?(-auto)?$/, express.urlencoded({ extended: false, limit: '64kb' }));   // the finish-by-hand form posts here
 app.use('/api', (req, res, next) => {
   if (!KEY && !gateOn()) return next();
   if (CAPTURE_ONLY.test(req.path)) { if (hasKey(req) || hasCapture(req)) return next(); return res.status(401).type(req.method === 'GET' ? 'html' : 'json').send(req.method === 'GET' ? '<p style="font-family:sans-serif">This save link needs the capture key. Re-drag the bookmark from the app.</p>' : '{"error":"capture key required"}'); }   // never by cookie alone: another website cannot add things in your name
@@ -200,8 +252,10 @@ app.get('/api/sync', wrap(async (req, res) => {
 }));
 app.post('/api/sync', wrap(async (req, res) => {
   await epochLoaded; const b = req.body || {}, out = { tx: 0, wish: 0, del: 0, state: 0, ack: 0, skipped: 0 };
-  for (const t of (b.tx || []).slice(0, 2000)) { if (!t || t.id == null) continue; if (stale(t._m) && epoch.scope !== 'wish') { out.skipped++; continue; } if (await isGone('tx', String(t.id))) { out.skipped++; continue; } await store.set('transactions', String(t.id), t); out.tx++; }
-  for (const w of (b.wish || []).slice(0, 1000)) { if (!w || w.id == null) continue; if (stale(w._m) && epoch.scope === 'all') { out.skipped++; continue; } if (await isGone('wish', String(w.id))) { out.skipped++; continue; } await store.set('wishlist', String(w.id), w); out.wish++; }
+  if (purging) return res.status(503).json({ error: 'A purge is running. Try again in a moment.', purging: true });
+  if (epoch.at && b.epoch !== undefined && (+b.epoch || 0) < epoch.at) return res.status(409).json({ error: 'This device has not applied the latest purge yet.', purged: epoch });   // its copy is older than the purge: nothing from it is taken
+  await inParallel((b.tx || []).slice(0, 2000), async t => { if (!t || t.id == null) return; if (stale(t._m) && epoch.scope !== 'wish') { out.skipped++; return; } if (await isGone('tx', String(t.id))) { out.skipped++; return; } await store.set('transactions', String(t.id), t); out.tx++; });
+  await inParallel((b.wish || []).slice(0, 1000), async w => { if (!w || w.id == null) return; if (stale(w._m) && epoch.scope === 'all') { out.skipped++; return; } if (await isGone('wish', String(w.id))) { out.skipped++; return; } await store.set('wishlist', String(w.id), w); out.wish++; });
   for (const id of ((b.del || {}).tx || [])) { await store.del('transactions', String(id)); if (!(await isGone('tx', String(id)))) await store.set('deleted', 'tx:' + id, { kind: 'tx', id: String(id), at: Date.now() }); out.del++; }
   for (const id of ((b.del || {}).wish || [])) { await store.del('wishlist', String(id)); if (!(await isGone('wish', String(id)))) await store.set('deleted', 'wish:' + id, { kind: 'wish', id: String(id), at: Date.now() }); out.del++; }
   for (const id of ((b.undelete || {}).tx || [])) await store.del('deleted', 'tx:' + id);
@@ -213,26 +267,24 @@ app.post('/api/sync', wrap(async (req, res) => {
 // purge: wipes the chosen data on the server and tells every device to wipe its copy too
 app.post('/api/purge', wrap(async (req, res) => {
   if (!signedIn(req) && !hasKey(req)) return res.status(401).json({ error: 'Sign in first.' });
-  if (gateOn() && !checkPass((req.body || {}).password)) return res.status(403).json({ error: 'The password is not right.' });
-  const scope = (req.body || {}).scope === 'ledger' ? 'ledger' : 'all', cols = scope === 'ledger' ? ['transactions'] : ['transactions', 'wishlist', 'state', 'inbox', 'deleted'];
-  let n = 0; for (const c of cols) { for (const id of await store.ids(c)) { await store.del(c, id); n++; } }
-  if (scope === 'ledger') { for (const id of await store.ids('deleted')) if (String(id).indexOf('tx:') === 0) { await store.del('deleted', id); n++; } }
-  else await store.del('meta', 'workspace').catch(() => {});
-  epoch = { at: Date.now(), scope }; await store.set('meta', 'epoch', epoch); console.log('Purge (' + scope + '): removed ' + n + ' records');
+  const ip = req.ip || 'x', now = Date.now(), t = tries.get(ip) || { n: 0, at: now }; if (now - t.at > 15 * 60000) { t.n = 0; t.at = now; } if (t.n >= 8) return res.status(429).json({ error: 'Too many wrong tries. Wait 15 minutes.' });
+  if (gateOn() && !checkPass((req.body || {}).password)) { t.n++; tries.set(ip, t); return res.status(403).json({ error: 'The password is not right.' }); }
+  await epochLoaded; const scope = (req.body || {}).scope === 'ledger' ? 'ledger' : 'all';
+  const n = await wipeScope(scope);
   res.json({ success: true, removed: n, epoch });
 }));
 // self-check: measures the database round trip from the server, for the in-app diagnostics
 app.get('/api/selftest', wrap(async (req, res) => {
   const t0 = Date.now(), id = 'selftest'; let ok = false, err = '';
   try { await store.set('meta', id, { at: t0 }); const v = await store.get('meta', id); ok = !!v && v.at === t0; await store.del('meta', id); } catch (e) { err = e.message; }
-  res.json({ ok, err, dbMs: Date.now() - t0, store: store.kind, version: VERSION, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false, gate: gateOn(), epoch, capture: !!CAPTURE });
+  res.json({ ok, err, dbMs: Date.now() - t0, store: store.kind, version: VERSION, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false, gate: gateOn(), epoch, capture: !!CAPTURE, encrypted: encStat });
 }));
 
 // ledger
 app.get('/api/get-transactions', wrap(async (req, res) => res.json(await store.all('transactions'))));
 // a deleted item is remembered, so another device that still holds it cannot quietly put it back
 const isGone = async (kind, id) => !!(await store.get('deleted', kind + ':' + id));
-app.post('/api/add-transaction', wrap(async (req, res) => { const t = req.body || {}; if (t.id == null) return res.status(400).json({ error: 'id missing' }); await epochLoaded; if (stale(t._m) && (epoch.scope !== 'wish')) return res.json({ success: true, skipped: 'purged' }); if (await isGone('tx', String(t.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('transactions', String(t.id), t); res.json({ success: true }); }));
+app.post('/api/add-transaction', wrap(async (req, res) => { const t = req.body || {}; if (purging) return res.status(503).json({ error: 'purge running' }); if (t.id == null) return res.status(400).json({ error: 'id missing' }); await epochLoaded; if (stale(t._m) && (epoch.scope !== 'wish')) return res.json({ success: true, skipped: 'purged' }); if (await isGone('tx', String(t.id))) return res.json({ success: true, skipped: 'deleted' }); await store.set('transactions', String(t.id), t); res.json({ success: true }); }));
 app.delete('/api/delete-transaction/:id', wrap(async (req, res) => { await store.del('transactions', req.params.id); if (!(await isGone('tx', req.params.id))) await store.set('deleted', 'tx:' + req.params.id, { kind: 'tx', id: req.params.id, at: Date.now() }); res.json({ success: true }); }));
 app.get('/api/deleted', wrap(async (req, res) => { const all = await store.all('deleted'); res.json({ tx: all.filter(d => d.kind === 'tx').map(d => d.id), wish: all.filter(d => d.kind === 'wish').map(d => d.id) }); }));
 app.post('/api/undelete', wrap(async (req, res) => { for (const id of (req.body.tx || [])) await store.del('deleted', 'tx:' + id); for (const id of (req.body.wish || [])) await store.del('deleted', 'wish:' + id); res.json({ success: true }); }));
@@ -299,31 +351,34 @@ async function readPage(url) {
 const hEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
 const storeOf = u => { const h = hostOf(u); const m = h.match(/(amazon|flipkart|myntra|ajio|croma|meesho|nykaa|tatacliq|snapdeal|reliancedigital|ebay|etsy|ikea|decathlon)/i); return (m ? m[1] : (h.split('.').slice(-2, -1)[0] || 'CAPTURED')).toUpperCase(); };
-const mediaTypeOf = (u, ty) => { const x = (u + ' ' + (ty || '')).toLowerCase(); if (/goodreads|book|kindle|audible|storygraph/.test(x)) return 'Book'; if (/crunchyroll|myanimelist|anilist|anime|funimation|hidive/.test(x)) return 'Anime'; if (/tvseries|\/tv\/|series|season|episode|show/.test(x)) return 'Series'; return 'Movie'; };
+const mediaTypeOf = (u, ty) => { const x = (u + ' ' + (ty || '')).toLowerCase(); if (/goodreads|book|kindle|audible|storygraph|openlibrary|scribd|libby|wattpad|manga(?!.*anime)/.test(x)) return 'Book'; if (/crunchyroll|myanimelist|anilist|anime|funimation|hidive|kitsu\.|animeplanet|anime-planet/.test(x)) return 'Anime'; if (/tvseries|tvseason|tvepisode|\/tv\/|series|season|episode|\/show|tvmaze|trakt\.tv\/shows/.test(x)) return 'Series'; return 'Movie'; };
 const GENRES = ['Action', 'Adventure', 'Comedy', 'Crime', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'];
 const cleanTitle = t => String(t || '').replace(/\s*[-|–:]\s*(Amazon\.in|Amazon\.com|Flipkart\.com|IMDb|Goodreads|Myntra|MyAnimeList\.net).*$/i, '').replace(/^Buy\s+/i, '').replace(/\s+Online at.*$/i, '').replace(/\s+/g, ' ').trim().slice(0, 140);
 async function saveBookmark(q, media) {
+  if (q.to === 'm') media = true; else if (q.to === 'w') media = false;              // the form can switch between Wishlist and Library
   const url = String(q.url || ''), title = cleanTitle(q.title); if (!title) throw new Error('title missing');
   const dup = (await store.all('wishlist')).find(w => w && w.link && url && w.link === url && !!w.isMedia === media && !w.purchased); if (dup) return { item: dup, dup: true };
-  const id = String(Date.now()) + Math.floor(Math.random() * 90 + 10), base = { id, title, price: num(q.price), link: url, imageUrl: /^https?:\/\//i.test(q.image || '') ? String(q.image) : '', timestamp: Date.now() };
+  const id = String(Date.now()) + Math.floor(Math.random() * 90 + 10), base = { id, title, price: num(q.price), link: url, imageUrl: /^https?:\/\//i.test(q.image || '') ? String(q.image).slice(0, 1500) : '', timestamp: Date.now(), source: 'bookmark', _m: Date.now() };
   const item = media
     ? Object.assign(base, { category: 'MEDIA NODE', wishCategory: ['Movie', 'Book', 'Series', 'Anime'].includes(q.mtype) ? q.mtype : mediaTypeOf(url, q.type), mediaGenre: GENRES.find(g => String(q.genre || '').toLowerCase().includes(g.toLowerCase())) || 'Drama', mediaStatus: 'Planned', mediaRating: 'Unrated', mediaDetails: [q.by, q.details].filter(Boolean).join(' — ').slice(0, 300), isMedia: true })
     : Object.assign(base, { category: String(q.store || storeOf(url)).toUpperCase().slice(0, 24), wishCategory: String(q.category || 'Lifestyle').slice(0, 30), priority: 2 });
   await store.set('wishlist', id, item); return { item, dup: false };
 }
-const PAGE = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${hEsc(title)}</title><style>body{margin:0;background:#04070d;color:#e2e8f0;font:14px/1.5 system-ui,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}main{width:min(380px,92vw);border:1px solid rgba(0,229,255,.45);border-radius:16px;padding:20px;background:#07101c;box-shadow:0 0 30px rgba(0,229,255,.15)}h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#00e5ff;margin:0 0 4px}p{color:#94a3b8;font-size:12.5px;margin:0 0 14px}label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin:10px 0 4px}input,select{width:100%;box-sizing:border-box;background:#030810;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px;color:#fff;font-size:14px}button{margin-top:16px;width:100%;padding:12px;border:0;border-radius:10px;background:#00e5ff;color:#000;font-weight:800;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}img{max-width:100%;max-height:120px;border-radius:10px;display:block;margin:0 auto 10px}.ok{color:#34d399;font-weight:700}</style></head><body><main>${body}</main></body></html>`;
-const savedPage = (r, media) => PAGE('Saved', `<h1>${r.dup ? 'Already saved' : 'Saved'}</h1><p class="ok">${hEsc(r.item.title)}${!media && r.item.price ? ' • ₹' + r.item.price : ''}</p><p>It is in your ${media ? 'Library' : 'Wishlist'}. This window closes by itself.</p><script>setTimeout(function(){window.close()},${r.dup ? 1400 : 500});</script>`);
+const PAGE = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${hEsc(title)}</title><style>body{margin:0;background:#04070d;color:#e2e8f0;font:14px/1.5 system-ui,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}main{width:min(380px,92vw);border:1px solid rgba(0,229,255,.45);border-radius:16px;padding:20px;background:#07101c;box-shadow:0 0 30px rgba(0,229,255,.15)}h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#00e5ff;margin:0 0 4px}p{color:#94a3b8;font-size:12.5px;margin:0 0 14px}label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin:10px 0 4px}input,select{width:100%;box-sizing:border-box;background:#030810;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px;color:#fff;font-size:14px}button{margin-top:16px;width:100%;padding:12px;border:0;border-radius:10px;background:#00e5ff;color:#000;font-weight:800;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}img{max-width:100%;max-height:120px;border-radius:10px;display:block;margin:0 auto 10px}.ok{color:#34d399;font-weight:700}.sw{display:flex;gap:4px;padding:4px;border-radius:12px;background:rgba(255,255,255,.05);margin:4px 0 10px}.sw button{flex:1;margin:0!important;padding:8px!important;background:transparent!important;color:#94a3b8!important;border:0!important;box-shadow:none!important;font-size:12px!important}.sw button.on{background:#00e5ff!important;color:#001018!important}</style></head><body><main>${body}</main></body></html>`;
+const savedPage = (r, media) => PAGE('Saved', `<h1>${r.dup ? 'Already saved' : 'Saved'}</h1><p class="ok">${hEsc(r.item.title)}${!media && r.item.price ? ' • ₹' + r.item.price : ''}</p><p>It is in your ${r.item.isMedia ? 'Library' : 'Wishlist'} and on all your devices. This window closes by itself.</p><p><a href="#" onclick="history.length>1?history.back():window.close();return false" style="color:#00e5ff">Back to the page</a></p><script>setTimeout(function(){window.close();setTimeout(function(){if(!window.closed&&!window.opener&&history.length>1)history.back()},400)},${r.dup ? 1400 : 600});</script>`);
 const formPage = (q, media, pre) => {
   const v = k => hEsc(q[k] || pre[k] || ''), img = q.image || pre.image || '';
   return PAGE('Save to Wally MK 3', `<h1>Save to ${media ? 'Library' : 'Wishlist'}</h1><p>${hEsc(hostOf(q.url || '') || 'No link')} — fill in what the page did not give.</p>${/^https?:/i.test(img) ? `<img src="${hEsc(img)}" alt="">` : ''}
-<form method="get" action="${media ? 'bookmark-media-auto' : 'bookmark-auto'}"><input type="hidden" name="url" value="${v('url')}"><input type="hidden" name="key" value="${hEsc(CAPTURE)}"><input type="hidden" name="details" value="${v('details')}"><input type="hidden" name="by" value="${v('by')}"><input type="hidden" name="genre" value="${v('genre')}"><input type="hidden" name="type" value="${v('type')}">
+<div class="sw"><button type="button" id="toW" class="${media ? '' : 'on'}">Wishlist</button><button type="button" id="toM" class="${media ? 'on' : ''}">Library</button></div>
+<form method="post" action="${media ? 'bookmark-media-auto' : 'bookmark-auto'}"><input type="hidden" name="to" id="to" value="${media ? 'm' : 'w'}"><input type="hidden" name="url" value="${v('url')}"><input type="hidden" name="key" value="${hEsc(CAPTURE)}"><input type="hidden" name="details" value="${v('details')}"><input type="hidden" name="by" value="${v('by')}"><input type="hidden" name="genre" value="${v('genre')}"><input type="hidden" name="type" value="${v('type')}">
 <label>${media ? 'Title' : 'Name'}</label><input name="title" required value="${v('title')}">
 ${media ? `<label>Type</label><select name="mtype">${['Movie', 'Series', 'Anime', 'Book'].map(t => `<option ${t === mediaTypeOf(q.url || '', q.type) ? 'selected' : ''}>${t}</option>`).join('')}</select>` : `<label>Price (₹)</label><input name="price" type="number" min="0" step="any" required value="${hEsc(num(q.price) || num(pre.price) || '')}" autofocus><label>Category</label><select name="category">${['Gadgets', 'Fashion', 'Home', 'Books', 'Fitness', 'Lifestyle'].map(t => `<option ${t === 'Lifestyle' ? 'selected' : ''}>${t}</option>`).join('')}</select>`}
-<label>Picture address</label><input name="image" value="${hEsc(img)}"><button>Save</button></form>`);
+<label>Picture address</label><input name="image" value="${hEsc(img)}"><button>Save</button></form>
+<script>(function(){var f=document.forms[0],w=document.getElementById('toW'),m=document.getElementById('toM'),t=document.getElementById('to');function set(x){t.value=x;w.className=x==='w'?'on':'';m.className=x==='m'?'on':'';var p=f.querySelector('[name=price]');if(p){p.required=x==='w';p.parentNode&&(p.style.display=x==='w'?'':'none');var l=p.previousElementSibling;if(l)l.style.display=x==='w'?'':'none';}}w.onclick=function(){set('w')};m.onclick=function(){set('m')};})();</script>`);
 };
-const bmAuto = media => wrap(async (req, res) => { try { res.type('html').send(savedPage(await saveBookmark(req.query, media), media)); } catch (e) { res.type('html').send(formPage(req.query, media, {})); } });
+const bmAuto = media => wrap(async (req, res) => { const q = Object.assign({}, req.query, req.body || {}); try { res.type('html').send(savedPage(await saveBookmark(q, media), media)); } catch (e) { res.type('html').send(formPage(q, media, {})); } });
 const bmForm = media => wrap(async (req, res) => { let pre = {}; if (req.query.url && !(req.query.title && (media || num(req.query.price)))) { try { const p = await readPage(String(req.query.url)); pre = { title: p.title, price: p.price, image: p.imageUrl, details: p.details }; } catch (e) {} } res.type('html').send(formPage(req.query, media, pre)); });
-app.get('/api/bookmark-auto', bmAuto(false)); app.get('/api/bookmark-media-auto', bmAuto(true));
+app.get('/api/bookmark-auto', bmAuto(false)); app.get('/api/bookmark-media-auto', bmAuto(true)); app.post('/api/bookmark-auto', bmAuto(false)); app.post('/api/bookmark-media-auto', bmAuto(true));
 app.get('/api/bookmark', bmForm(false)); app.get('/api/bookmark-media', bmForm(true));
 
 app.post('/api/scrape-price', wrap(async (req, res) => { try { res.json(await readPage(String(req.body.url || ''))); } catch (e) { res.json({ title: '', price: 0, imageUrl: '' }); } }));

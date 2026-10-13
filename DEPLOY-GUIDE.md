@@ -235,3 +235,28 @@ Dashboard → **✓ Self-check** (right end of the section bar), or shield → *
 - Sync now takes one trip each way, and app files are sent compressed and only re-sent when they change.
 - The biggest remaining delay is distance. Render's free services in **Oregon/Ohio** add about 250 ms per trip from India; a service in **Singapore** cuts that to about 60–90 ms. Render cannot move an existing service: create a new Web Service from the same repo, pick region Singapore, copy the same environment settings, and use its new address. Your data lives in Firestore, so nothing is lost.
 - Keep-awake (automatic on Render) stops the 30–60 s cold start.
+
+## Round 16: clean ledger and encrypted storage
+- **One-time clean ledger.** The first time the new server starts, it deletes every ledger entry on the server once, and each device wipes its ledger the next time it opens. Wishlist, library, planner, habits, notes and fitness stay. It never runs again after that, so anything you add from then on is kept. (To skip it, set `LEDGER_RESET=off` in Render *before* deploying.)
+- **The built-in sample ledger is gone from the code.** It was your own spending history sitting in a public repository. Old commits on GitHub still contain it; if that matters, make the repository private (GitHub → Settings → General → Danger zone → Change visibility). The app works the same either way.
+- **Encryption at rest.** Every record is now compressed and sealed with AES-256-GCM before it is stored in Firestore. Someone who sees your database sees only scrambled text, and any tampering is detected. Old records are sealed automatically on the first start.
+  - The key comes from `DATA_KEY` if you set one in Render, otherwise from `WALLY_KEY`. **Never change or delete that value**: records sealed with the old key cannot be opened (they are kept, not destroyed, so putting the old value back recovers them).
+  - Self-check shows "encrypted" in the server details.
+- **Purge, fixed.** The purge moment is now written before anything is deleted, deletion runs in parallel (fast on Firestore), and a device whose copy is older than the purge is refused outright, so nothing can sneak back in while the purge runs.
+- **LEVEL//UP → Settings → RESET VESSEL** now resets on every device instead of pulling the old progress back.
+
+## Notifications
+The bell opens the notification centre:
+- **Inbox:** new alerts at the top, then earlier today and this week, with "Coming up" for the next few reminders. Opening the panel marks everything read, so the red dot disappears straight away, and the read state syncs, so it disappears on your other devices too. ✕ dismisses one; "Clear all" dismisses the lot. Tap an alert to open the page it is about.
+- **Reminders:** your own reminders: text, time, once / daily / weekdays / weekends / chosen days / monthly, an optional note, and which page it opens. Quick presets, an on/off switch, "+1 h" snooze and delete. Each shows when it fires next.
+- **Settings:** pop-up permission and test, a master switch, the automatic reminders (morning brief, bills, tasks, mood, habits, fitness quest) and their times.
+
+## C.A.S.P.E.R. Capture (bookmarks), round 17
+Top of the Wishlist and Library pages.
+1. **Drag "⇪ Send to C.A.S.P.E.R." to your bookmarks bar** (Ctrl + Shift + B shows the bar). It is one bookmark for everything: film, series, anime and book sites (IMDb, Letterboxd, Goodreads, MyAnimeList, Netflix, Prime Video, Hotstar…) go to the Library, everything else to the Wishlist. The "Wishlist only" / "Library only" buttons are there if you prefer fixed ones.
+2. On a product or title page, click it. It reads the address, the page's product data, the `og:image` picture, the title and the price right on the page.
+3. A small window opens on your server at `/api/bookmark-auto` (or `/api/bookmark-media-auto`). It saves at once, says "Saved", and closes itself. If the price or title is missing, it shows a short form instead (with a Wishlist / Library switch); press Save and it closes. If your browser blocks the window, the same tab goes there and comes back.
+4. Every open device gets the item within about a second, with a toast and a bell notification; it appears under **Recently captured**.
+- The bookmark carries your capture key, which can only add items. **Re-drag it after you sign in** on a new setup, or after changing `WALLY_KEY`. Old bookmarks from earlier rounds still work, but drag the new one to get the smart routing.
+- Phone: "Copy for phone", bookmark any page, edit it, paste the code as the address; on a product page, type the bookmark's name in the address bar and tap it.
+- "Try the save window" opens the form with a test item; nothing is saved unless you press Save.

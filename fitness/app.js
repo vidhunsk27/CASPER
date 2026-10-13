@@ -2369,3 +2369,30 @@ Return JSON: {"note": "one sentence on the idea of this week", "days": [{"dow": 
   `;
   document.head.appendChild(css);
 })();
+
+
+/* =========================================================
+   LEVEL//UP FITNESS — ROUND 16
+   RESET VESSEL now really resets: the fresh state is saved as a new
+   change, so sync carries the reset to the server and your other
+   devices instead of pulling the old progress back.
+========================================================= */
+(function () {
+  'use strict';
+  const btn = document.getElementById('reset'); if (!btn) return;
+  btn.onclick = async () => {
+    if (!confirm('[WARNING] This will purge all hunter rank data, quests, history, food logs and the AI trainer, and reset your vessel to Level 1 on every device. Confirm?')) return;
+    try {
+      const keepName = s && s.profile ? s.profile.name : undefined;
+      s = structuredClone(base); if (keepName) s.profile.name = keepName;
+      save();                                                     // stamped as the newest change, so it wins everywhere
+      const v = localStorage.getItem(KEY), t = Date.now();
+      try { const m = JSON.parse(localStorage.getItem('cxMT') || '{}'); m[KEY] = t; localStorage.setItem('cxMT', JSON.stringify(m)); } catch (e) {}
+      if (localStorage.getItem('walletCloudLinked') && /^https?:/.test(location.protocol)) {
+        try { await fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [KEY]: { v, t } }) }); } catch (e) {}
+      }
+    } catch (e) { localStorage.removeItem(KEY); }
+    try { sessionStorage.setItem('cxKeep', String(Date.now())); } catch (e) {}
+    location.reload();
+  };
+})();
