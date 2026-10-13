@@ -3568,7 +3568,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     window.renderWishlist = function () {
         const grid = $('wishlistGrid'); if (!grid) return;
         if (!$('cxWishBar')) grid.insertAdjacentHTML('beforebegin', '<div id="cxWishBar" class="mb-4 md:col-span-2"></div>');
-        const plan = Number(monthlyWishlistSavings) || 0, perDay = plan / 30, fund = Number(getJ('walletWishFund', 0)) || 0, bal = balances();
+        const usual = (window.CX16 && CX16.usualSaving()) || 0, setPlan = Number(monthlyWishlistSavings) || 0, plan = setPlan || usual, estimated = !setPlan && usual > 0, perDay = plan / 30, fund = Number(getJ('walletWishFund', 0)) || 0, bal = balances();
         const open = wishlistItems.filter(w => !w.purchased), bought = wishlistItems.filter(w => w.purchased);
         const total = open.reduce((a, w) => a + (Number(w.price) || 0), 0);
 
@@ -3583,7 +3583,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         $('cxWishBar').innerHTML = `
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                 <div class="cx-tile"><span>Cart total</span><b>${inr(total)}</b><small>${open.length} item${open.length === 1 ? '' : 's'}</small></div>
-                <div class="cx-tile"><span>Whole cart cleared in</span><b style="color:#fbbf24">${allDays === null ? '—' : span(allDays)}</b><small>${plan > 0 ? `at ${inr(plan)} / month` : 'set a savings plan above'}</small></div>
+                <div class="cx-tile"><span>Whole cart cleared in</span><b style="color:#fbbf24">${allDays === null ? '—' : span(allDays)}</b><small>${setPlan > 0 ? `at your plan of ${inr(setPlan)} / month` : estimated ? `estimate at your usual ${inr(usual)} / month saved • <a href="#" style="color:#00e5ff" onclick="event.preventDefault();CXWish.plan()">set a plan</a>` : `<a href="#" style="color:#00e5ff" onclick="event.preventDefault();CXWish.plan()">set a monthly savings plan</a> to get dates`}</small></div>
                 <div class="cx-tile"><span>Already saved for cart</span><b style="color:#34d399">${inr(fund)}</b><small><a href="#" style="color:#00e5ff" onclick="event.preventDefault();CXWish.fund()">update amount</a></small></div>
                 <div class="cx-tile"><span>Liquid assets</span><b style="color:#00e5ff">${inr(bal.liquid)}</b><small>${open.filter(w => (w.price || 0) <= bal.liquid).length} item(s) affordable from cash</small></div>
             </div>
@@ -3593,7 +3593,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             </div>`;
 
         if (!list.length) {
-            grid.innerHTML = `<div class="md:col-span-2 flex flex-col items-center justify-center py-14 border border-dashed border-[#00e5ff]/30 rounded-2xl">${hud(84, '#00e5ff', 'shopping-cart')}<p class="text-[#00e5ff] text-[10px] font-bold uppercase tracking-widest mt-4">Cart empty. Paste a link, or use the capture bookmark below.</p></div>`;
+            grid.innerHTML = `<div class="md:col-span-2 flex flex-col items-center justify-center py-14 border border-dashed border-[#00e5ff]/30 rounded-2xl">${hud(84, '#00e5ff', 'shopping-cart')}<p class="text-[#00e5ff] text-[10px] font-bold uppercase tracking-widest mt-4">Cart empty. Paste a link on the left, or use the Send to C.A.S.P.E.R. bookmark at the top of this page.</p></div>`;
         } else {
             grid.innerHTML = list.map(w => {
                 const e = eta[w.id], price = Number(w.price) || 0, alone = perDay > 0 ? Math.ceil(price / perDay) : null, pri = PRI[w.priority || 2];
@@ -3607,9 +3607,10 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
                             <span class="text-[8px] font-bold text-[#00e5ff] border border-[#00e5ff]/30 rounded px-1.5 py-0.5 uppercase tracking-widest shrink-0">${esc(w.wishCategory || 'Other')}</span>
                         </div>
                         <div class="flex items-end justify-between gap-2"><p class="text-2xl font-black text-[#10b981] cx-display">${price > 0 ? inr(price) : 'Price not set'}</p>
-                            <button class="text-[10px] font-black uppercase tracking-widest" style="color:${pri[1]}" title="Click to change priority" onclick="CXWish.priority(${idArg(w.id)})">● ${pri[0]} priority</button></div>
+                            <label class="cx-pri" style="--pc:${pri[1]}" title="Priority decides the buy order: High items are saved for first"><span>●</span><select aria-label="Priority" onchange="CXWish.setPri(${idArg(w.id)}, this.value)">${[1, 2, 3].map(n => `<option value="${n}" ${(w.priority || 2) === n ? 'selected' : ''}>${PRI[n][0]} priority</option>`).join('')}</select></label></div>
+                        ${w.priceWas && w.priceWas !== price ? `<p class="text-[10px] font-black uppercase tracking-widest" style="color:${price < w.priceWas ? '#34d399' : '#f87171'}">${price < w.priceWas ? '↓' : '↑'} ${inr(Math.abs(w.priceWas - price))} since last check (was ${inr(w.priceWas)})</p>` : ''}
                         <div class="cx-bar"><i style="width:${pct}%;background:#10b981"></i></div>
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-[#fbbf24]">${price <= 0 ? 'Set a price to see the timeline' : e.days === 0 ? 'Fully saved for. Ready to buy.' : e.days === null ? 'Set a monthly savings plan to see when you can afford this' : `#${e.pos} in queue • affordable in ${span(e.days)} (${when})`}</p>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-[#fbbf24]">${price <= 0 ? 'Set a price to see the timeline' : e.days === 0 ? 'Fully saved for. Ready to buy.' : e.days === null ? `<a href="#" style="color:#00e5ff" onclick="event.preventDefault();CXWish.plan()">Set how much you save each month</a> to see when you can afford this` : `#${e.pos} in buy order • affordable in ${span(e.days)} (${when})${estimated ? ' • estimate' : ''}`}</p>
                         ${alone !== null && price > 0 && e.days !== 0 ? `<p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">On its own: ${span(alone)}${price <= bal.liquid ? ' • cash on hand covers it today' : ''}</p>` : ''}
                         <div class="flex gap-2 justify-end mt-auto pt-2 flex-wrap">
                             ${w.link ? `<a href="${esc(w.link)}" target="_blank" rel="noopener" class="cx-btn sm">Open${w.category && w.category !== 'MANUAL' ? ' ' + esc(String(w.category).toLowerCase()) : ''}</a>` : ''}
@@ -3628,6 +3629,8 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     window.CXWish = {
         sort(s) { wishSort = s; setJ('walletWishSort', s); renderWishlist(); },
         fund() { const v = prompt('How much have you already set aside for wishlist items (₹)?', getJ('walletWishFund', 0)); if (v === null) return; setJ('walletWishFund', Math.max(0, parseFloat(v) || 0)); renderWishlist(); },
+        setPri(id, v) { const w = wishlistItems.find(i => String(i.id) === String(id)); if (!w) return; w.priority = Math.max(1, Math.min(3, +v || 2)); saveWishlistLocally(); renderWishlist(); toast('Priority: ' + PRI[w.priority][0] + '. The buy order is updated.'); },
+        plan() { const cur = Number(monthlyWishlistSavings) || 0, u = (window.CX16 && CX16.usualSaving()) || 0; const v = prompt('How much do you put aside for wishlist items each month (₹)?' + (u ? `\nYour income minus spending has averaged about ₹${Math.round(u).toLocaleString('en-IN')} a month lately.` : ''), cur || (u ? Math.round(u) : '')); if (v === null) return; window.updateWishlistSavings(v); },
         priority(id) { const w = wishlistItems.find(i => String(i.id) === String(id)); if (!w) return; w.priority = ((w.priority || 2) % 3) + 1; saveWishlistLocally(); renderWishlist(); },
         bought(id) {
             const w = wishlistItems.find(i => String(i.id) === String(id)); if (!w) return;
@@ -3666,6 +3669,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
                 <p class="text-[9px] font-bold uppercase tracking-widest text-[#a855f7]">${TYPE_ICON[m.wishCategory] || ''} ${esc(m.wishCategory || 'Media')}${m.mediaGenre ? ' • ' + esc(m.mediaGenre) : ''}${stars ? ` • <span style="color:#fbbf24">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</span>` : ''}</p>
                 ${!compact && m.mediaDetails ? `<p class="text-xs text-gray-400 line-clamp-2">${esc(m.mediaDetails)}</p>` : ''}
                 ${stepper(m)}
+                ${st !== 'Completed' ? `<label class="cx-pri" style="--pc:${({ 1: '#f87171', 2: '#a855f7', 3: '#64748b' })[m.priority || 2]}" title="Up next titles are listed first"><span>●</span><select aria-label="Priority" onchange="CXVault.setPri(${idArg(m.id)}, this.value)">${[[1, 'Up next'], [2, 'Normal'], [3, 'Someday']].map(([n, l]) => `<option value="${n}" ${(m.priority || 2) === n ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
                 <div class="flex items-center gap-2"><div class="cx-bar flex-1"><i style="width:${prog}%;background:${FLOW_COL[st]}"></i></div><span class="text-[10px] font-black text-gray-300" style="min-width:34px;text-align:right">${prog}%</span></div>
                 ${st === 'In Progress' ? `<input type="range" min="0" max="100" step="5" value="${prog}" class="mood-slider" title="How much you have ${unit}" onchange="CXVault.progress(${idArg(m.id)}, this.value)">` : ''}
                 ${st === 'Completed' && !compact ? `<div class="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">Rate ${[1, 2, 3, 4, 5].map(n => `<button onclick="CXVault.rate(${idArg(m.id)}, ${n})" style="font-size:16px;color:${n <= stars ? '#fbbf24' : '#475569'}">★</button>`).join('')}</div>` : ''}
@@ -3713,11 +3717,11 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
 
         const q = vf.q.toLowerCase();
         const list = all.filter(m => (vf.type === 'All' || m.wishCategory === vf.type) && (vf.status === 'All' || stOf(m) === vf.status) && (!q || [m.title, m.mediaGenre, m.mediaDetails, m.wishCategory].join(' ').toLowerCase().includes(q)))
-            .sort((a, b) => (FLOW.indexOf(stOf(a)) === 1 ? -1 : 0) - (FLOW.indexOf(stOf(b)) === 1 ? -1 : 0) || (b.timestamp || 0) - (a.timestamp || 0));
+            .sort((a, b) => (FLOW.indexOf(stOf(a)) === 1 ? -1 : 0) - (FLOW.indexOf(stOf(b)) === 1 ? -1 : 0) || ((a.priority || 2) - (b.priority || 2)) || (b.timestamp || 0) - (a.timestamp || 0));
         grid.innerHTML = list.length ? list.map(m => vaultCard(m, false)).join('')
-            : `<div class="md:col-span-2 flex flex-col items-center justify-center py-14 border border-dashed border-[#a855f7]/30 rounded-2xl">${hud(84, '#a855f7', 'clapperboard')}<p class="text-[#a855f7] text-[10px] font-bold uppercase tracking-widest mt-4">${all.length ? 'Nothing matches these filters.' : 'Library empty. Paste a link or use the capture bookmark below.'}</p></div>`;
+            : `<div class="md:col-span-2 flex flex-col items-center justify-center py-14 border border-dashed border-[#a855f7]/30 rounded-2xl">${hud(84, '#a855f7', 'clapperboard')}<p class="text-[#a855f7] text-[10px] font-bold uppercase tracking-widest mt-4">${all.length ? 'Nothing matches these filters.' : 'Library empty. Paste a link on the left, or use the Send to C.A.S.P.E.R. bookmark at the top of this page.'}</p></div>`;
         const cols = { 'Planned': $('kb-planned'), 'In Progress': $('kb-progress'), 'Completed': $('kb-completed') };
-        Object.keys(cols).forEach(s => { if (!cols[s]) return; const l = all.filter(m => stOf(m) === s); cols[s].innerHTML = l.length ? l.map(m => vaultCard(m, true)).join('') : '<p class="text-[9px] text-gray-600 uppercase tracking-widest font-bold">Empty</p>'; });
+        Object.keys(cols).forEach(s => { if (!cols[s]) return; const l = all.filter(m => stOf(m) === s).sort((a, b) => ((a.priority || 2) - (b.priority || 2)) || (b.timestamp || 0) - (a.timestamp || 0)); cols[s].innerHTML = l.length ? l.map(m => vaultCard(m, true)).join('') : '<p class="text-[9px] text-gray-600 uppercase tracking-widest font-bold">Empty</p>'; });
         icons();
     };
 
@@ -3726,6 +3730,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     window.CXVault = {
         set(id, s) { const m = findM(id); if (!m) return; m.mediaStatus = s; if (s === 'Completed') { m.completedAt = Date.now(); m.progress = 100; } else { m.mediaRating = 'Unrated'; if (s === 'Planned') m.progress = 0; else if (!m.startedAt) m.startedAt = Date.now(); } saveMediaLocally(); if (s !== 'Planned') window.CX.emit('media', m); renderMedia(); },
         progress(id, v) { const m = findM(id); if (!m) return; m.progress = Number(v); window.CX.emit('media', m); if (m.progress >= 100) return this.set(id, 'Completed'); saveMediaLocally(); renderMedia(); },
+        setPri(id, v) { const m = findM(id); if (!m) return; m.priority = Math.max(1, Math.min(3, +v || 2)); saveMediaLocally(); renderMedia(); },
         rate(id, n) { const m = findM(id); if (!m) return; m.mediaRating = String(Number(m.mediaRating) === n ? 'Unrated' : n); saveMediaLocally(); renderMedia(); },
         filter(k, v) { vf[k] = v; renderMedia(); },
         search(v) { vf.q = v; vSearch(); },
@@ -5789,7 +5794,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             let cap = 0; const ack = []; if (box && box.length) { box.forEach(m => { let n = 0; window.__cxSmsNext = () => 'sms-' + m.id + (n++ ? '-' + n : ''); const before = transactions.length; try { window.CXSms.ingest(m.text, 'phone SMS'); } finally { window.__cxSmsNext = null; } cap += Math.max(0, transactions.length - before); ack.push(m.id); }); }
             // everything else: newest change wins per item; the very first link on a device never overwrites the server
             const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0, quiet = 0; const push = {};
-            const QUIET = new Set(['walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
+            const QUIET = new Set(['walletWishPlan', 'walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
             if (sv) {
                 const mt = MT();
                 new Set(Object.keys(sv).concat(Object.keys(localStorage).filter(synced))).forEach(k => {
@@ -6403,7 +6408,13 @@ at=function(s,a){try{var e=d.querySelector(s);return e?(e.getAttribute(a)||''):'
 num=function(v){v=String(v||'').replace(/,/g,'');var m=v.match(/\\d+(\\.\\d+)?/);return m?parseFloat(m[0]):0},ld={};
 try{[].forEach.call(d.querySelectorAll('script[type="application/ld+json"]'),function(s){try{var j=JSON.parse(s.textContent);(Array.isArray(j)?j:[j].concat(j['@graph']||[])).forEach(function(o){if(o&&/Product|Movie|Book|TVSeries|CreativeWork/.test([].concat(o['@type']||'').join())&&(!ld.name||o.offers))ld=o})}catch(x){}})}catch(e){}
 var of=ld.offers?(Array.isArray(ld.offers)?ld.offers[0]:ld.offers):{};
-var pr=num(of.price||of.lowPrice||(of.priceSpecification||{}).price);
+var ldp=num(of.price||of.lowPrice||(of.priceSpecification||{}).price),pr=0,H=location.hostname;
+if(/amazon\\./.test(H)){pr=num(q('#corePriceDisplay_desktop_feature_div .a-price .a-offscreen'))||num(q('#corePrice_feature_div .a-offscreen'))||num(q('.priceToPay .a-offscreen'))||num(q('#apex_desktop .a-price .a-offscreen'))}
+if(!pr){try{var bt=[].slice.call(d.querySelectorAll('button,a,div[role=button]')).map(function(b){return b.innerText||''}).join(' ').match(/Buy (?:at|for|now at)\\s*(?:\\u20B9|Rs\\.?)\\s?([\\d,]+(?:\\.\\d+)?)/i);if(bt)pr=num(bt[1])}catch(e){}}
+var vis=[];if(!pr){try{var BAD=/similar|recommend|sponsor|carousel|related|upsell|cross-?sell|\\bads?\\b|widget|frequently|customers-also|you-may|bundle|emi|coupon|offer-?list/i,h1=d.querySelector('h1'),hy=h1?h1.getBoundingClientRect().top+scrollY:0;
+[].forEach.call(d.querySelectorAll('span,div,strong,b,p,ins,h2,h3,h4,bdi'),function(e){if(e.children.length>3)return;var t=(e.innerText||'').trim();if(t.length>24||!/^(?:\\u20B9|Rs\\.?|INR)\\s?[\\d,]+(?:\\.\\d{1,2})?$/.test(t))return;var r=e.getBoundingClientRect();if(!r.width||!r.height)return;var y=r.top+scrollY;if(y>2200)return;var c=getComputedStyle(e),x=e,bad=false;for(var k=0;k<8&&x;k++){var cs=getComputedStyle(x);if(/line-through/.test(cs.textDecorationLine||cs.textDecoration)||BAD.test((x.id||'')+' '+(typeof x.className==='string'?x.className:''))){bad=true;break}x=x.parentElement}if(bad)return;vis.push({v:num(t),f:parseFloat(c.fontSize)||0,w:+c.fontWeight||400,dy:Math.abs(y-hy)})});
+vis.sort(function(a,b){return(b.f-a.f)||(b.w-a.w)||(a.dy-b.dy)});if(vis[0])pr=vis[0].v}catch(e){}}
+if(!pr)pr=ldp;
 var ps=['meta[property="product:price:amount"]','meta[property="og:price:amount"]','meta[itemprop="price"]','[itemprop="price"]','#corePriceDisplay_desktop_feature_div .a-price .a-offscreen','#corePrice_feature_div .a-offscreen','.priceToPay .a-offscreen','.a-price .a-offscreen','#priceblock_ourprice','#priceblock_dealprice','.Nx9bqj.CxhGGd','.Nx9bqj','._30jeq3','.pdp-price strong','.pdp-price','.prod-sp','.pdp__offerPrice','#pdp-product-price','.product-price .amount','.price__current','.price-item--sale','.price-item--regular','.woocommerce-Price-amount','[data-testid*="price"]','[class*="selling-price"]','[class*="sellingPrice"]','[class*="final-price"]','[class*="finalPrice"]','[class*="offer-price"]','[class*="Price"]','[class*="price"]'];
 for(var i=0;i<ps.length&&!pr;i++){pr=num(q(ps[i]))}
 if(!pr){var m=(d.body.innerText||'').match(/(?:\\u20B9|Rs\\.?|INR|\\$|\\u20AC|\\u00A3)\\s?([\\d,]+(?:\\.\\d+)?)/);if(m)pr=num(m[1])}
@@ -6413,7 +6424,9 @@ if(!im){var b=null,ba=0;[].forEach.call(d.images,function(g){var a=(g.naturalWid
 try{if(im&&!/^(https?:|data:)/.test(im))im=new URL(im,location.href).href}catch(e){}
 var pn=function(x){x=Array.isArray(x)?x[0]:x;return x?(x.name||x):''};
 var rt=ld.aggregateRating?(ld.aggregateRating.ratingValue||''):'',br=pn(ld.brand),ds=String(ld.description||q('meta[property="og:description"]')||q('meta[name="description"]')||'');
-var o={v:1,k:K,t:String(ld.name||q('meta[property="og:title"]')||q('#productTitle')||q('h1')||d.title).replace(/\\s+/g,' ').slice(0,160),p:pr,i:String(im||''),u:location.href,d:((br?'Brand: '+br+'. ':'')+(rt?'Rated '+rt+'. ':'')+ds).replace(/\\s+/g,' ').slice(0,280),ty:[].concat(ld['@type']||'').join(),g:[].concat(ld.genre||'').join(', '),a:String(pn(ld.author)||pn(ld.director)||'')};
+var JUNK=/keyboard shortcut|product summary presents|landing page|^buy\\b.*\\bonline\\b|^online shopping|^shop online|page not found|^amazon\\.|^flipkart/i,vh=function(){var hs=d.querySelectorAll('h1');for(var j=0;j<hs.length;j++){var r=hs[j].getBoundingClientRect(),tx=(hs[j].innerText||'').replace(/\\s+/g,' ').trim();if(r.width&&r.height&&tx.length>3&&tx.length<220&&!JUNK.test(tx))return tx}return ''};
+var MYN=d.querySelector('.pdp-name')?((q('.pdp-title')+' '+q('.pdp-name')).trim()):'';var TT=[ld.name,q('#productTitle'),MYN,vh(),q('meta[property="og:title"]'),d.title].map(function(x){return String(x||'').replace(/\\s+/g,' ').trim()}).filter(function(x){return x&&!JUNK.test(x)})[0]||d.title;TT=TT.replace(/\\s*[-|:]\\s*(Buy|Shop)\\b.*$/i,'').replace(/^Buy\\s+/i,'').replace(/\\s+Online\\s+at\\b.*$/i,'').slice(0,160);
+var o={v:1,k:K,t:TT,p:pr,i:String(im||''),u:location.href,d:((br?'Brand: '+br+'. ':'')+(rt?'Rated '+rt+'. ':'')+ds).replace(/\\s+/g,' ').slice(0,280),ty:[].concat(ld['@type']||'').join(),g:[].concat(ld.genre||'').join(', '),a:String(pn(ld.author)||pn(ld.director)||'')};
 var s='CASPER::'+JSON.stringify(o);try{navigator.clipboard.writeText(s)}catch(e){}
 if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'casper')}else{prompt('Copied. If not, copy this, then press "Paste captured data" in C.A.S.P.E.R.',s)}})();`;
         return 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
@@ -7346,7 +7359,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
             const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
             add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
-            if (h) add('Server is up to date', h.version === 'mk3-r17', h.version || 'older file', h.version === 'mk3-r17' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Server is up to date', h.version === 'mk3-r18', h.version || 'older file', h.version === 'mk3-r18' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
             if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
             const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
             add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
@@ -7769,4 +7782,130 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     };
     const start = () => { safe(paint); safe(arrivals); setInterval(() => { if (!document.hidden) { safe(paint); safe(arrivals); } }, 2500); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1200)); else setTimeout(start, 1200);
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 18 (appended; nothing above is changed)
+   1 the wishlist savings plan box finally works (it called a function that never existed)
+   2 an "about what you usually save" estimate when no plan is set
+   3 info buttons on every heading, tile and field in every tab that lacked one
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, getJ, setJ, mKey, toast, icons } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v16', e); } };
+
+    // ---------------------------------------------------------------- savings plan
+    function usualSaving() {
+        try {
+            const now = new Date(), out = [];
+            for (let i = 1; i <= 3; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1), k = mKey(d.getTime()); const l = transactions.filter(t => mKey(t.timestamp) === k && t.account !== 'Emergency'); if (!l.length) continue; out.push(l.reduce((a, t) => a + (t.type === 'income' ? t.amount : -t.amount), 0)); }
+            if (!out.length) return 0; const avg = out.reduce((a, b) => a + b, 0) / out.length; return avg > 0 ? Math.round(avg) : 0;
+        } catch (e) { return 0; }
+    }
+    window.updateWishlistSavings = function (v) {
+        const n = Math.max(0, Math.round(parseFloat(v) || 0));
+        try { monthlyWishlistSavings = n; } catch (e) {}
+        setJ('walletWishPlan', n); const inp = $('wishlistSavingsInput'); if (inp && document.activeElement !== inp) inp.value = n || '';
+        try { renderWishlist(); } catch (e) {}
+        if (n) toast(`Savings plan set: ₹${n.toLocaleString('en-IN')} a month. Every item now shows when you can buy it.`);
+    };
+    function restorePlan() { const n = +getJ('walletWishPlan', 0) || 0; try { if (n !== (Number(monthlyWishlistSavings) || 0)) { monthlyWishlistSavings = n; try { renderWishlist(); } catch (e) {} } } catch (e) {} const inp = $('wishlistSavingsInput'); if (inp && document.activeElement !== inp && String(inp.value) !== String(n || '')) inp.value = n || ''; if (inp && !inp.dataset.cx16) { inp.dataset.cx16 = '1'; inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); }); inp.placeholder = 'e.g. 3000'; } }
+
+    // ---------------------------------------------------------------- info buttons
+    const INFO = {
+        // dashboard
+        'month at a glance': 'This month so far: money in, money out, how much of your income you kept (savings rate), and spending compared with last month up to the same date.',
+        'cash trend': 'Your cash balance at the end of each of the last six months, worked out from every ledger entry. The number on the right is this month’s change.',
+        'repeating payments': 'Payments that come back at about the same amount every month (rent, phone, streaming), found from your ledger, with the next expected date.',
+        'unusual spending': 'Payments in the last 30 days that were three times or more your usual amount for that category, so a one-off big spend stands out.',
+        'income': 'Money that came in during the selected period (the filter at the top right).', 'expense': 'Money that went out during the selected period.',
+        'savings velocity': 'How fast you are saving: income minus spending, month by month.', 'burn trajectory': 'How quickly this month’s spending is adding up, compared with a steady pace that would last the month.',
+        'category spread': 'Which categories your money went to in the selected period.', 'cumulative wealth': 'Your running balance over time: every income added, every expense taken away.',
+        'distribution': 'How your entries are spread by size: many small payments or a few large ones.', 'account utilization': 'How much each account (UPI, bank, cash, card) is used for payments.',
+        '7-day cashflow': 'Money in and out for each of the last seven days.', 'month over month': 'This month’s income and spending next to the previous months.', 'weekly rhythm': 'Which days of the week you spend the most on.',
+        'data entry protocol': 'Add a ledger entry by hand: amount, whether it is income or expense, category, account, date and a note.', 'category': 'What the money was for. Categories drive the charts, caps and insights.',
+        'account vector': 'Which account the money moved through: UPI, bank, cash, card or the emergency fund.', 'timestamp': 'When it happened. Defaults to today.', 'parameters (notes)': 'A short note, such as the shop or person. Notes help C.A.S.P.E.R. spot repeating payments.',
+        'auto-recurring matrix': 'Tick this for payments that repeat every month. They show up in Upcoming bills and in the bill reminders.',
+        'spend heatmap': 'One square per day; brighter means more spent. Tap a day to see what was paid.', 'recurring bindings': 'Your monthly repeating entries (ticked as recurring), with what they cost you each month.',
+        'data tools': 'Import a bank statement (CSV), export your ledger, and other bulk actions.', 'insights': 'Month at a glance, cash trend, repeating payments and unusual spending, worked out from your ledger.',
+        // investments
+        'portfolio command': 'A summary of everything you hold: what you put in, what it is worth now, the gain or loss, and your net worth (cash plus investments).',
+        'invested': 'The total money you have put into your holdings.', 'current value': 'What your holdings are worth today, from the “value now” you enter for each one.', 'profit / loss': 'Current value minus what you invested.',
+        'net worth': 'Your cash (from the ledger) plus the current value of your investments.', 'invested this month': 'Money you put into investments this month.',
+        'name': 'What to call this holding or goal, for example “Nifty 50 index fund”.', 'type': 'The kind of item: stock, mutual fund, gold, FD and so on; or Movie, Series, Anime or Book in the Library.',
+        'invested ₹': 'How much money you have put into this holding in total.', 'value now ₹': 'What this holding is worth today. Update it now and then to keep the numbers true.',
+        'goal': 'Something you are saving towards, such as a laptop, a trip or an emergency fund.', 'target ₹': 'How much the goal costs.', 'years': 'How many years until you need the money.',
+        'return %': 'The yearly growth you expect, for example 7 for a fixed deposit or 12 for equity funds over the long run.', 'saved so far ₹': 'Money already put aside for this goal.',
+        'amount (₹)': 'The amount to calculate with.', 'return % p.a.': 'Expected growth per year (per annum).', 'result': 'What the calculator worked out from the numbers above.',
+        'monthly injection (₹)': 'How much you would invest every month (a SIP).', 'return (%)': 'The yearly growth you expect.', 'horizon (yrs)': 'How many years you keep investing.',
+        'future wealth': 'What the monthly investment grows to by the end, with compounding.', 'total debt principal (₹)': 'How much you still owe, not counting future interest.',
+        'interest (%)': 'The yearly interest rate on the debt.', 'monthly pay (₹)': 'How much you pay towards it every month.', 'time to debt-free': 'How long until the debt is fully paid at that monthly payment.',
+        'monthly expenses (₹)': 'What you spend in a normal month.', 'safe withdrawal (%)': 'The share of your savings you could take out each year without running out; 4% is a common rule of thumb.',
+        'inflation buffer (%)': 'Extra margin for prices rising over the years.', 'target corpus required': 'The total savings you would need so the safe withdrawal covers your yearly expenses (financial independence).',
+        'asset ticker / symbol': 'The short market code of a stock or fund, such as INFY or NIFTYBEES, to look up its trend.', 'suggested assets': 'Common symbols to try in the forecaster.',
+        // wishlist
+        '⇪ c.a.s.p.e.r. capture': 'The capture bookmark: one click on any shop or title page saves it here with name, price and picture, without opening this app.',
+        'wish category': 'The kind of thing you want: gadgets, fashion, home and so on. Used for grouping and filters.', 'quick ideas': 'Tap one to start a wishlist item from a common idea.',
+        'cart total': 'The price of everything on your wishlist that you have not bought yet.',
+        'whole cart cleared in': 'How long until you could buy everything on the list, saving your monthly plan (or, without a plan, what you have usually saved a month lately). Money already saved for the cart counts first.',
+        'already saved for cart': 'Money you have already set aside for wishlist items. It is used for the items at the front of the buy order.',
+        'liquid assets': 'Your spendable cash from the ledger (not counting the emergency fund), and how many wishlist items it could pay for today.',
+        'sort': 'Buy order is the savings queue: High priority first, then cheapest. Or sort by price or newest.',
+        'savings plan': 'How much you put aside for the wishlist each month. With it, every item shows the date you can afford it, in buy order.',
+        'look up price and details online (sends the link to a public relay)': 'When ticked, a pasted link is read by a free public relay to fill in the name, price and picture. Shops sometimes show it a different price, so check it, or use the capture bookmark, which reads the page you see.',
+        // library
+        'watch list and reading list': 'Everything you want to watch or read, from Planned to Ongoing to Completed.',
+        'format type': 'Movie, Series, Anime or Book.', 'genre tag': 'The main genre, used for filters and picks.', 'progress state': 'Planned (not started), Ongoing (in progress) or Completed.',
+        'in the library': 'Every title in your library, by type.', 'planned': 'Titles you have not started yet.', 'ongoing': 'Titles you are watching or reading now; drag the slider on a card to set how far you are.',
+        'completed': 'Titles you have finished, and how many this year.', 'average rating': 'The average of the stars you gave completed titles.', 'status': 'Filter by where each title is: Planned, Ongoing or Completed.',
+        // workspace
+        'saved document protocols': 'Notes and documents you saved from the sandbox above. Tap one to open it again.', 'saved schematic drafts': 'Drawings saved from the sketch canvas.', 'tint': 'The colour of this memory card.',
+        // growth
+        'habits, last 7 days': 'How many of your daily habits you ticked over the last week.', 'focus time, 7 days': 'Minutes logged with the focus timer in the last week.',
+        'average energy': 'Your average energy from the mood check-ins.', 'journal days': 'Days you wrote in the journal.', 'energy level': 'How much energy you have right now; it shapes today’s plan and training load.',
+        'mental focus': 'How focused you feel right now.', 'target weakness': 'Something you want to get better at. C.A.S.P.E.R. builds a plan of small daily steps for it.',
+        'area of improvement / difficulty': 'Describe the weakness in your own words, for example “I procrastinate on study”.', 'active schedule': 'Your plan for today, built from your habits and targets.',
+        'active development protocols': 'The improvement targets you are working on.', 'ai countermeasure terminal': 'Ask C.A.S.P.E.R. for a plan against a weakness; it answers with concrete steps.', 'working on': 'What this focus session is for, so the minutes go to the right skill.',
+        // planner
+        'mission planner': 'Your day at a glance: tasks, bills, calendar and safe-to-spend.', 'safe to spend today': 'What you can spend today and still finish the month inside your budget, after bills due this month.',
+        'next bill': 'The next recurring payment due, from entries ticked as recurring.', "today's mode": 'How hard to push today, from your mood, energy and focus check-ins.'
+    };
+    const norm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const ownText = e => { let t = ''; e.childNodes.forEach(n => { if (n.nodeType === 3) t += n.textContent; else if (n.nodeType === 1 && !n.classList.contains('info-icon') && !/^(svg|i|select|input|button)$/i.test(n.tagName)) t += n.textContent; }); return norm(t); };
+    const ICON = t => `<span class="info-icon cx16-i" data-info="${String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" tabindex="0" role="button" aria-label="What is this?"><i data-lucide="help-circle"></i></span>`;
+    function addInfo() {
+        let added = 0;
+        ['viewDashboard', 'viewInvestments', 'viewWishlist', 'viewMedia', 'viewWorkspace', 'viewGrowth', 'viewPlanner'].forEach(id => {
+            const v = $(id); if (!v) return;
+            v.querySelectorAll('h2,h3,h4,.cx-h,.cx-tile > span,label,.cx-lbl,p.text-\\[10px\\]').forEach(e => {
+                if (e.querySelector('.info-icon') || (e.nextElementSibling && e.nextElementSibling.classList && e.nextElementSibling.classList.contains('info-icon'))) return;
+                const first = [...e.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()), t = INFO[ownText(e)] || (first && INFO[norm(first.textContent)]); if (!t) return;
+                e.insertAdjacentHTML('beforeend', ' ' + ICON(t)); added++;
+            });
+        });
+        const plan = $('wishlistSavingsInput'), box = plan && plan.closest('.flex'); if (box && !box.querySelector('.info-icon')) { const lb = box.querySelector('div'); if (lb) { lb.insertAdjacentHTML('beforeend', ' ' + ICON(INFO['savings plan'])); added++; } }
+        if (added) safe(icons);
+    }
+    // tap support on phones: a tap shows the explanation, a second tap or a tap elsewhere hides it
+    document.addEventListener('click', e => { const ic = e.target.closest('.info-icon'); const tip = $('globalTooltip'); if (ic) { e.preventDefault(); e.stopPropagation(); if (typeof showTooltipForIcon === 'function') showTooltipForIcon(ic); } else if (tip) { tip.style.opacity = '0'; tip.style.visibility = 'hidden'; } }, true);
+    document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('info-icon') && typeof showTooltipForIcon === 'function') { e.preventDefault(); showTooltipForIcon(e.target); } });
+
+    const css = document.createElement('style');
+    css.textContent = `
+    .cx16-i { display: inline-flex; vertical-align: middle; margin-left: 4px; color: #64748b; cursor: help; -webkit-text-fill-color: initial; } .cx16-i:hover, .cx16-i:focus { color: #00e5ff; outline: none; } .cx16-i svg { width: 13px; height: 13px; }
+    h2 .cx16-i svg, h3 .cx16-i svg { width: 15px; height: 15px; }
+    .cx-tile .cx16-i, .cx-tile span.cx16-i { display: inline-flex !important; margin: 0 0 0 4px !important; vertical-align: -2px; font-size: inherit; }
+    .cx-pri { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px 3px 8px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--pc) 45%, transparent); background: color-mix(in srgb, var(--pc) 10%, rgba(0,0,0,.4)); color: var(--pc); cursor: pointer; align-self: flex-start; }
+    .cx-pri span { font-size: 9px; } .cx-pri select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; color: var(--pc); font: 900 10px 'Oxanium', sans-serif; letter-spacing: .12em; text-transform: uppercase; padding-right: 14px; cursor: pointer; outline: none; }
+    .cx-pri::after { content: '▾'; position: absolute; right: 6px; font-size: 10px; pointer-events: none; } .cx-pri select option { background: #07101c; color: #fff; text-transform: none; }
+    `;
+    document.head.appendChild(css);
+
+    window.CX16 = { usualSaving, INFO, addInfo };
+    ['renderWishlist', 'renderMedia', 'updateUI', 'switchMainView'].forEach(n => { const o = window[n]; if (typeof o === 'function') window[n] = function () { const r = o.apply(this, arguments); setTimeout(() => safe(addInfo), 30); return r; }; });   // re-drawn panels get their info buttons straight away
+    const start = () => { safe(restorePlan); safe(addInfo); setInterval(() => { if (!document.hidden) { safe(addInfo); safe(restorePlan); } }, 2000); window.addEventListener('storage', e => { if (e.key === 'walletWishPlan') safe(restorePlan); }); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1000)); else setTimeout(start, 1000);
 })();
