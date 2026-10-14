@@ -7964,6 +7964,10 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     #cx17 .split { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 14px; margin-top: 12px; }
     #cx17 .split div { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; color: #cbd5e1; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); } #cx17 .split i { width: 10px; height: 10px; border-radius: 3px; } #cx17 .split b { color: #fff; white-space: nowrap; } #cx17 .split small { grid-column: 2 / 4; color: #64748b; font-size: 11px; margin-top: -4px; }
     #cx17 .cap { font: 700 10px 'Oxanium', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #64748b; margin-top: 12px; display: flex; justify-content: space-between; gap: 10px; } #cx17 .cap a { color: #fbbf24; cursor: pointer; }
+    /* ring emblems: the icon always sits well inside the rings, on every page (an older rule stretched it to the ring's full size) */
+    .cx-hud > svg.lucide, .cx-hud > i, .cx-hud > svg[data-lucide] { position: relative !important; inset: auto !important; width: 34% !important; height: 34% !important; max-width: 34% !important; max-height: 34% !important; min-width: 0 !important; filter: none !important; stroke-width: 2.2; }
+    .cx-hud > svg:not(.lucide):not([data-lucide]) { width: 100% !important; height: 100% !important; }
+    .cx-tabhud { overflow: visible !important; max-width: none !important; max-height: none !important; } .cx-tabhud .cx-hud { overflow: visible !important; }
     @media (max-width: 760px) { #cx17 { padding: 14px; } #cx17 .kpis { grid-template-columns: 1fr 1fr; } #cx17 .kpis div:last-child { grid-column: 1 / 3; } #cx17 .cv { height: 230px; } }
     `;
     document.head.appendChild(css);
