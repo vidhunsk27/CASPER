@@ -2777,7 +2777,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(), day = now.getDate();
         const exp = monthExp(m), spent = exp.reduce((a, t) => a + t.amount, 0), budget = budgetFor(m);
         const income = transactions.filter(t => t.type === 'income' && t.account !== 'Emergency' && mKey(t.timestamp) === m).reduce((a, t) => a + t.amount, 0);
-        return { m, exp, spent, budget, income, dim, day, left: budget - spent, safe: Math.max(0, (budget - spent) / (dim - day + 1)), proj: spent / day * dim };
+        const cash = balances().liquid, daysLeft = dim - day + 1, byBudget = budget - spent, room = Math.min(byBudget, cash);     // you cannot safely spend money you do not have
+        return { m, exp, spent, budget, income, dim, day, left: byBudget, cash, budgetSet: !!localStorage.getItem('walletBudgets'), limitBy: cash < byBudget ? 'cash' : 'budget', safe: Math.max(0, room / daysLeft), proj: spent / day * dim };
     }
 
     // Animated HUD ring (original SVG, no external images needed, works offline)
@@ -6848,7 +6849,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         const wl = wishlistItems.filter(w => !w.purchased), can = wl.filter(w => +w.price > 0 && +w.price <= bal.liquid).length;
         return [
             { s: 'L n0', c: '#00e5ff', k: 'Liquid assets', v: inr(bal.liquid), d: 'Emergency fund ' + inr(bal.ef || 0), tip: 'Cash, bank and UPI you can use now. Tap for the ledger.', go: () => { const e = $('ledgerList') || $('aiTerminal'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
-            { s: 'L n1', c: '#fbbf24', k: 'Safe to spend today', v: inr(st.safe), d: (st.dim - st.day + 1) + ' days left this month', tip: 'Budget left, divided by the days left. Tap for the month forecast.', go: () => { try { getCASPERForecast(); } catch (e) {} const e = $('aiTerminal'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); } },
+            { s: 'L n1', c: '#fbbf24', k: 'Safe to spend today', v: inr(st.safe), d: st.limitBy === 'cash' ? (st.cash <= 0 ? 'no cash in the ledger yet' : 'limited by your cash ' + inr(st.cash)) : (st.dim - st.day + 1) + ' days left' + (st.budgetSet ? '' : ' • default ₹25k budget'), tip: 'The smaller of your budget left and your cash, divided by the days left in the month. With no income recorded it is ₹0. Tap for the month forecast.', go: () => { try { getCASPERForecast(); } catch (e) {} const e = $('aiTerminal'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); } },
             { s: 'L n2', c: pct >= 90 ? '#f87171' : '#34d399', k: 'Spent today', v: inr(spent), d: pct + '% of the month’s budget used', tip: 'Today’s expenses and how much of the budget is gone. Tap for the spend map.', go: () => { const e = $('upgHeatmap'); if (e) e.closest('.glass-panel').scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
             { s: 'R n0', c: late ? '#f87171' : '#c6f432', k: 'Planner', v: due + ' due today', d: late ? late + ' overdue' : tk.length + ' open in total', tip: 'Open tasks from the Planner. Tap to open it.', go: () => switchMainView('planner') },
             { s: 'R n1', c: '#f97316', k: 'Habits', v: hDone + ' / ' + hAll, d: hAll && hDone === hAll ? 'all done today' : 'ticked today', tip: 'Growth habits ticked today. Tap to open Growth.', go: () => switchMainView('growth') },
@@ -7269,7 +7270,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             if (tr && tr.targets) { const eaten = ((tr.food || {})[td] || []).reduce((a, x) => a + (+x.kcal || 0), 0), pro = ((tr.food || {})[td] || []).reduce((a, x) => a + (+x.protein || 0), 0); cards.push({ c: '#34d399', i: '🍛', k: 'Fuel today', b: Math.round(eaten) + ' / ' + tr.targets.kcal + ' kcal', e: Math.round(pro) + ' / ' + tr.targets.protein + ' g protein', go: 'food' }); }
         });
         safe(() => { const tk = getJ('walletTasks', []).filter(t => !t.done), d = tk.filter(t => t.due === td), late = tk.filter(t => t.due && t.due < td); const n = d[0] || late[0] || tk[0]; cards.push({ c: '#c6f432', i: '📋', k: late.length ? late.length + ' overdue' : d.length + ' due today', b: n ? n.text : 'Planner is clear', e: tk.length + ' open task' + (tk.length === 1 ? '' : 's'), go: 'planner' }); });
-        safe(() => { const st = monthStats(); cards.push({ c: '#fbbf24', i: '💰', k: 'Safe to spend today', b: inr(st.safe), e: inr(Math.max(0, st.left)) + ' left this month', go: 'ledger' }); });
+        safe(() => { const st = monthStats(); cards.push({ c: '#fbbf24', i: '💰', k: 'Safe to spend today', b: inr(st.safe), e: st.limitBy === 'cash' ? (st.cash <= 0 ? 'add your income to start' : 'limited by cash ' + inr(st.cash)) : inr(Math.max(0, st.left)) + ' left this month', go: 'ledger' }); });
         const h = cards.slice(0, 4).map((c, i) => `<button type="button" style="--c:${c.c}" data-go="${c.go}"><i class="ic">${c.i}</i><span><small>${esc(c.k)}</small><b>${esc(c.b)}</b><em>${esc(c.e)}</em></span></button>`).join('');
         if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
     }
@@ -7870,7 +7871,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         'area of improvement / difficulty': 'Describe the weakness in your own words, for example “I procrastinate on study”.', 'active schedule': 'Your plan for today, built from your habits and targets.',
         'active development protocols': 'The improvement targets you are working on.', 'ai countermeasure terminal': 'Ask C.A.S.P.E.R. for a plan against a weakness; it answers with concrete steps.', 'working on': 'What this focus session is for, so the minutes go to the right skill.',
         // planner
-        'mission planner': 'Your day at a glance: tasks, bills, calendar and safe-to-spend.', 'safe to spend today': 'What you can spend today and still finish the month inside your budget, after bills due this month.',
+        'mission planner': 'Your day at a glance: tasks, bills, calendar and safe-to-spend.', 'safe to spend today': 'What you can spend per day for the rest of the month: the smaller of your budget left and your actual cash, divided by the days left. It is ₹0 until you record income or a starting balance.',
         'next bill': 'The next recurring payment due, from entries ticked as recurring.', "today's mode": 'How hard to push today, from your mood, energy and focus check-ins.'
     };
     const norm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
