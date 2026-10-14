@@ -5794,7 +5794,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             let cap = 0; const ack = []; if (box && box.length) { box.forEach(m => { let n = 0; window.__cxSmsNext = () => 'sms-' + m.id + (n++ ? '-' + n : ''); const before = transactions.length; try { window.CXSms.ingest(m.text, 'phone SMS'); } finally { window.__cxSmsNext = null; } cap += Math.max(0, transactions.length - before); ack.push(m.id); }); }
             // everything else: newest change wins per item; the very first link on a device never overwrites the server
             const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0, quiet = 0; const push = {};
-            const QUIET = new Set(['walletWishPlan', 'walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
+            const QUIET = new Set(['walletWeekLimit', 'walletWishPlan', 'walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
             if (sv) {
                 const mt = MT();
                 new Set(Object.keys(sv).concat(Object.keys(localStorage).filter(synced))).forEach(k => {
@@ -7235,8 +7235,8 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         const key = localStorage.getItem('cxCaptureKey'); if (!key) return;
         const url = new URL(API_BASE, location.href).href.replace(/\/$/, '') + '/sms?key=' + key;
         m.firstElementChild.insertAdjacentHTML('beforeend', `<div id="cx12Cap" class="cx-row" style="margin-top:10px;display:block;font-size:12.5px;color:#cbd5e1;line-height:1.7"><b class="text-white">Capture key</b> for bookmarks and phone automation: <span class="cx12-key">${esc(key)}</span> <button class="cx-btn sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(key)}').then(()=>CX.toast('Copied.'))">Copy</button><br>It can only <b>add</b> bookmarks and bank messages; it cannot read or change anything else. Use it instead of the WALLY_KEY everywhere outside Render.<br>SMS forwarding address: <span class="cx12-key" style="font-size:11.5px">${esc(url)}</span> <button class="cx-btn sm" onclick="navigator.clipboard&&navigator.clipboard.writeText('${esc(url)}').then(()=>CX.toast('Copied.'))">Copy</button><br><span style="color:#94a3b8">Re-drag the capture bookmarks once so they carry this key.</span></div>`);
-        const g = localStorage.getItem('cxLockGrace') === null ? '0' : localStorage.getItem('cxLockGrace');
-        m.firstElementChild.insertAdjacentHTML('beforeend', `<div class="cx-row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:#cbd5e1"><b class="text-white">Ask for the password when I come back after leaving for</b><select class="cx-in" style="padding:6px 9px" onchange="localStorage.setItem('cxLockGrace',this.value);CX.toast('Saved for this device.')">${[['0', 'any time (every return)'], ['10', '10 seconds'], ['60', '1 minute'], ['300', '5 minutes'], ['900', '15 minutes']].map(o => `<option value="${o[0]}" ${o[0] === g ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><span style="color:#94a3b8;flex-basis:100%">Switching to another app or tab and back counts as leaving. Taking a photo for the food log and opening LEVEL//UP from here do not.</span></div>`);
+        const g = localStorage.getItem('cxLockGrace') === null ? '30' : localStorage.getItem('cxLockGrace');
+        m.firstElementChild.insertAdjacentHTML('beforeend', `<div class="cx-row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:#cbd5e1"><b class="text-white">Ask for the password when I come back after leaving for</b><select class="cx-in" style="padding:6px 9px" onchange="localStorage.setItem('cxLockGrace',this.value);CX.toast('Saved for this device.')">${[['0', 'any time (every return)'], ['10', '10 seconds'], ['30', '30 seconds (default)'], ['60', '1 minute'], ['300', '5 minutes'], ['900', '15 minutes']].map(o => `<option value="${o[0]}" ${o[0] === g ? 'selected' : ''}>${o[1]}</option>`).join('')}</select><span style="color:#94a3b8;flex-basis:100%">Switching to another app or tab and back counts as leaving. Taking a photo for the food log and opening LEVEL//UP from here do not.</span></div>`);
     }
 
     // ==========================================================================
@@ -7331,9 +7331,9 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         msg.style.color = '#94a3b8'; msg.textContent = 'Purging…';
         window.__cxHold = true;                                                 // pause syncing so nothing is pushed back while the server is cleared
         let server = 'not linked';
-        if (localStorage.getItem('walletCloudLinked') && /^https?:/.test(location.protocol)) {
+        if (/^https?:/.test(location.protocol)) {                              // always clear the server copy when the app runs from a server, linked or not
             try { const r = await fetch(API_BASE + '/purge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope, password: $('cx13Pw').value }) }), j = await r.json().catch(() => ({}));
-                if (!r.ok) { window.__cxHold = false; msg.style.color = '#f87171'; msg.textContent = j.error || (r.status === 404 ? 'Your server runs an older file. Upload the new server.js first.' : 'The server refused (' + r.status + ').'); return; }
+                if (!r.ok) { window.__cxHold = false; msg.style.color = '#f87171'; if (r.status === 401) { msg.innerHTML = 'Your sign-in has expired, so the server copy could not be deleted. <a href="/login?next=/" style="color:#00e5ff">Sign in again</a>, then purge.'; return; } msg.textContent = j.error || (r.status === 404 ? 'Your server runs an older file (no purge route). Push the new server/server.js to GitHub and wait for Render to redeploy.' : 'The server refused (' + r.status + ').'); return; }
                 server = 'purged'; localStorage.setItem('cxEpoch', String(j.epoch.at)); }
             catch (e) { window.__cxHold = false; msg.style.color = '#f87171'; msg.textContent = 'The server could not be reached, so nothing was deleted. Try again when online.'; return; }
         }
@@ -7359,7 +7359,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
             const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
             add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
-            if (h) add('Server is up to date', h.version === 'mk3-r18', h.version || 'older file', h.version === 'mk3-r18' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Server is up to date', h.version === 'mk3-r19', h.version || 'older file', h.version === 'mk3-r19' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
             if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
             const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
             add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
@@ -7908,4 +7908,135 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     ['renderWishlist', 'renderMedia', 'updateUI', 'switchMainView'].forEach(n => { const o = window[n]; if (typeof o === 'function') window[n] = function () { const r = o.apply(this, arguments); setTimeout(() => safe(addInfo), 30); return r; }; });   // re-drawn panels get their info buttons straight away
     const start = () => { safe(restorePlan); safe(addInfo); setInterval(() => { if (!document.hidden) { safe(addInfo); safe(restorePlan); } }, 2000); window.addEventListener('storage', e => { if (e.key === 'walletWishPlan') safe(restorePlan); }); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1000)); else setTimeout(start, 1000);
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 19 (appended; nothing above is changed)
+   Weekly spend monitor on the dashboard: your own weekly limit as a line over
+   stacked category bars (12 weeks, or day by day this week), with the split-up,
+   pace, projection and alerts at 80% and 100%.
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, esc, inr, getJ, setJ, toast } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v17', e); } };
+    const LK = 'walletWeekLimit', COLS = ['#00e5ff', '#a855f7', '#fbbf24', '#34d399', '#f472b6', '#fb923c', '#64748b'];
+    const DAY = 864e5, DN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let mode = getJ('cxWeekMode', 'weeks'), pick = null, chart = null, sig = '';
+
+    const weekStart = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
+    const exp = () => transactions.filter(t => t.type === 'expense' && t.account !== 'Emergency' && Number.isFinite(t.amount));
+    const limit = () => Math.max(0, +getJ(LK, 0) || 0);
+    const fmtD = ts => new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    function data() {
+        const w0 = weekStart(Date.now()), weeks = [];
+        for (let i = 11; i >= 0; i--) weeks.push(w0 - i * 7 * DAY);
+        const all = exp(), inW = (t, s) => t.timestamp >= s && t.timestamp < s + 7 * DAY;
+        const recent = all.filter(t => t.timestamp >= weeks[0]), tot = {};
+        recent.forEach(t => { tot[t.category] = (tot[t.category] || 0) + t.amount; });
+        const top = Object.keys(tot).sort((a, b) => tot[b] - tot[a]).slice(0, 6), cat = c => top.includes(c) ? c : 'Other';
+        const cats = top.concat(recent.some(t => !top.includes(t.category)) ? ['Other'] : []);
+        const byWeek = weeks.map(s => { const o = { s, total: 0, c: {} }; all.filter(t => inW(t, s)).forEach(t => { const k = cat(t.category); o.c[k] = (o.c[k] || 0) + t.amount; o.total += t.amount; }); return o; });
+        const days = DN.map((n, i) => { const s = w0 + i * DAY, o = { s, n, total: 0, c: {} }; all.filter(t => t.timestamp >= s && t.timestamp < s + DAY).forEach(t => { const k = cat(t.category); o.c[k] = (o.c[k] || 0) + t.amount; o.total += t.amount; }); return o; });
+        const past = byWeek.slice(0, 11).filter(w => w.total > 0), avg = past.length ? past.slice(-8).reduce((a, w) => a + w.total, 0) / Math.min(8, past.length) : 0;
+        const el = Date.now() - w0, lastSame = all.filter(t => t.timestamp >= w0 - 7 * DAY && t.timestamp < w0 - 7 * DAY + el).reduce((a, t) => a + t.amount, 0);
+        return { w0, weeks: byWeek, days, cats, avg, cur: byWeek[11], last: byWeek[10], lastSame };
+    }
+    function roll(ws) { return ws.map((w, i) => { const s = ws.slice(Math.max(0, i - 3), i + 1); return Math.round(s.reduce((a, x) => a + x.total, 0) / s.length); }); }
+
+    // ---------------------------------------------------------------- panel
+    const css = document.createElement('style');
+    css.textContent = `
+    #cx17 { margin: 0 0 14px; padding: 18px 20px; }
+    #cx17 .hd { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    #cx17 .hd h4 { font: 800 12px 'Oxanium', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #fbbf24; display: flex; align-items: center; gap: 6px; }
+    #cx17 .ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    #cx17 .lim { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 11px; border: 1px solid rgba(251,191,36,.35); background: rgba(0,0,0,.35); font: 700 10px 'Oxanium', sans-serif; letter-spacing: .1em; color: #fbbf24; text-transform: uppercase; }
+    #cx17 .lim input { width: 92px; background: transparent; border: 0; outline: none; color: #fff; font: 800 14px 'Oxanium', sans-serif; text-align: right; }
+    #cx17 .seg { display: flex; padding: 3px; border-radius: 10px; background: rgba(255,255,255,.05); } #cx17 .seg button { padding: 6px 10px; border-radius: 8px; font: 700 10px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; } #cx17 .seg button.on { background: #fbbf24; color: #1a1205; }
+    #cx17 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    #cx17 .kpis div { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); min-width: 0; }
+    #cx17 .kpis span { display: block; font: 700 9.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; } #cx17 .kpis b { display: block; font: 800 18px 'Oxanium', sans-serif; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #cx17 .kpis small { display: block; font-size: 11px; color: #64748b; margin-top: 1px; }
+    #cx17 .meter { height: 10px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; position: relative; margin: 0 0 14px; } #cx17 .meter i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; transition: width .5s; } #cx17 .meter em { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; opacity: .7; }
+    #cx17 .cv { position: relative; height: 270px; } #cx17 canvas { touch-action: pan-y; }
+    #cx17 .split { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 14px; margin-top: 12px; }
+    #cx17 .split div { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; color: #cbd5e1; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); } #cx17 .split i { width: 10px; height: 10px; border-radius: 3px; } #cx17 .split b { color: #fff; white-space: nowrap; } #cx17 .split small { grid-column: 2 / 4; color: #64748b; font-size: 11px; margin-top: -4px; }
+    #cx17 .cap { font: 700 10px 'Oxanium', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #64748b; margin-top: 12px; display: flex; justify-content: space-between; gap: 10px; } #cx17 .cap a { color: #fbbf24; cursor: pointer; }
+    @media (max-width: 760px) { #cx17 { padding: 14px; } #cx17 .kpis { grid-template-columns: 1fr 1fr; } #cx17 .kpis div:last-child { grid-column: 1 / 3; } #cx17 .cv { height: 230px; } }
+    `;
+    document.head.appendChild(css);
+
+    function html(D) {
+        const L = limit(), cur = D.cur.total, now = Date.now(), dayIdx = Math.min(6, Math.floor((now - D.w0) / DAY)), daysLeft = 7 - dayIdx;
+        const pct = L ? Math.round(cur / L * 100) : 0, left = L - cur, proj = Math.round(cur / Math.max(0.5, (now - D.w0) / DAY) * 7);
+        const col = !L ? '#00e5ff' : pct >= 100 ? '#f87171' : pct >= 80 ? '#fbbf24' : '#34d399', vs = D.lastSame ? Math.round((cur - D.lastSame) / D.lastSame * 100) : null;
+        const sugg = Math.max(100, Math.round(D.avg / 100) * 100);
+        const sel = pick !== null ? D.weeks[pick] : D.cur, selTot = sel.total || 0, catAvg = c => { const p = D.weeks.slice(3, 11); return p.reduce((a, w) => a + (w.c[c] || 0), 0) / p.length; };
+        return `<div class="hd"><h4>Weekly spend monitor <span class="info-icon cx16-i" data-info="Your spending week by week (Monday to Sunday), split by category, against a weekly limit you choose. The dashed line is your limit; the cyan line is your 4-week average. Switch to This week to see each day and your pace towards the limit. Alerts arrive at 80% and 100%."><i data-lucide="help-circle"></i></span></h4>
+            <div class="ctl"><label class="lim" title="Your weekly spending limit">Limit ₹<input id="cx17L" type="number" min="0" step="100" inputmode="numeric" value="${L || ''}" placeholder="${D.avg ? sugg : 'e.g. 3000'}" onkeydown="if(event.key==='Enter')this.blur()" onchange="CX17.setLimit(this.value)"><span>/ week</span></label>
+            <div class="seg"><button class="${mode === 'weeks' ? 'on' : ''}" onclick="CX17.mode('weeks')">12 weeks</button><button class="${mode === 'week' ? 'on' : ''}" onclick="CX17.mode('week')">This week</button></div></div></div>
+            <div class="kpis"><div><span>This week</span><b style="color:${col}">${inr(cur)}</b><small>${L ? pct + '% of ' + inr(L) : 'no limit set'}</small></div>
+                <div><span>${L && left < 0 ? 'Over by' : 'Left this week'}</span><b style="color:${L ? (left < 0 ? '#f87171' : '#34d399') : '#64748b'}">${L ? inr(Math.abs(left)) : '—'}</b><small>${daysLeft} day${daysLeft > 1 ? 's' : ''} to go incl. today</small></div>
+                <div><span>Per day from now</span><b>${L ? inr(Math.max(0, Math.floor(left / daysLeft))) : '—'}</b><small>to stay inside the limit</small></div>
+                <div><span>On course for</span><b style="color:${L && proj > L ? '#f87171' : '#fff'}">${inr(proj)}</b><small>at this week's pace</small></div>
+                <div><span>vs last week, same days</span><b style="color:${vs === null ? '#64748b' : vs > 0 ? '#f87171' : '#34d399'}">${vs === null ? '—' : (vs > 0 ? '+' : '') + vs + '%'}</b><small>average week ${inr(Math.round(D.avg))}</small></div></div>
+            ${L ? `<div class="meter" title="${pct}% of your weekly limit"><i style="width:${Math.min(100, pct)}%;background:${col}"></i><em style="left:${Math.min(99.5, (dayIdx + 1) / 7 * 100)}%" title="where an even pace would be by the end of today"></em></div>` : `<p style="font-size:12.5px;color:#94a3b8;margin:0 0 12px">Set a weekly limit above${D.avg ? ` (your average week is ${inr(Math.round(D.avg))}; ${inr(sugg)} would be a fair start)` : ''} to get the limit line, pace and alerts.</p>`}
+            <div class="cv"><canvas id="cx17C" aria-label="Weekly spending chart"></canvas></div>
+            <div class="cap"><span>${mode === 'weeks' ? (pick !== null && pick !== 11 ? 'Split-up for the week of ' + fmtD(sel.s) : 'Split-up this week') : 'Split-up this week'} • ${inr(selTot)}</span>${mode === 'weeks' ? (pick !== null && pick !== 11 ? '<a onclick="CX17.pick(null)">back to this week</a>' : '<span>tap a bar for that week</span>') : ''}</div>
+            <div class="split">${D.cats.filter(c => sel.c[c]).sort((a, b) => sel.c[b] - sel.c[a]).map(c => { const v = sel.c[c], a = catAvg(c), d = a ? Math.round((v - a) / a * 100) : null; return `<div><i style="background:${COLS[D.cats.indexOf(c) % COLS.length]}"></i><span>${esc(c)}</span><b>${inr(v)}</b><small>${L ? Math.round(v / L * 100) + '% of limit • ' : ''}${selTot ? Math.round(v / selTot * 100) + '% of the week' : ''}${d !== null && Math.abs(d) >= 15 ? ` • <span style="color:${d > 0 ? '#f87171' : '#34d399'}">${d > 0 ? '+' : ''}${d}% vs usual</span>` : ''}</small></div>`; }).join('') || '<p style="font-size:12.5px;color:#64748b">Nothing spent in this week yet.</p>'}</div>`;
+    }
+    function draw(D) {
+        const cv = $('cx17C'); if (!cv || !window.Chart) return; if (chart) { try { chart.destroy(); } catch (e) {} chart = null; }
+        const L = limit(), grid = 'rgba(255,255,255,.06)', tick = { color: '#64748b', font: { family: 'Oxanium', size: 10 } };
+        const rows = mode === 'weeks' ? D.weeks : D.days, labels = mode === 'weeks' ? D.weeks.map((w, i) => i === 11 ? 'This wk' : fmtD(w.s)) : D.days.map(d => d.n);
+        const ds = D.cats.map((c, i) => ({ type: 'bar', label: c, data: rows.map(r => Math.round(r.c[c] || 0)), backgroundColor: rows.map((r, j) => COLS[i % COLS.length] + (mode === 'weeks' && pick !== null && j !== pick ? '55' : 'cc')), borderRadius: 3, stack: 's', yAxisID: 'y', order: 2, maxBarThickness: 46 }));
+        if (mode === 'weeks') {
+            ds.push({ type: 'line', label: '4-week average', data: roll(D.weeks), borderColor: '#00e5ff', backgroundColor: '#00e5ff', borderWidth: 2, pointRadius: 0, tension: .35, yAxisID: 'y', order: 1, stack: 'avg' });
+            if (L) ds.push({ type: 'line', label: 'Your limit', data: rows.map(() => L), borderColor: '#f87171', borderDash: [6, 5], borderWidth: 2, pointRadius: 0, yAxisID: 'y', order: 0, stack: 'lim' });
+        } else {
+            let run = 0; const now = Date.now(), cum = D.days.map(d => { run += d.total; return d.s <= now ? Math.round(run) : null; });
+            ds.push({ type: 'line', label: 'Spent so far (right scale)', data: cum, borderColor: '#fbbf24', backgroundColor: '#fbbf24', borderWidth: 2.5, pointRadius: 3, tension: .25, yAxisID: 'y2', order: 1, spanGaps: false });
+            if (L) ds.push({ type: 'line', label: 'Even pace to your limit', data: D.days.map((d, i) => Math.round(L * (i + 1) / 7)), borderColor: '#f87171', borderDash: [6, 5], borderWidth: 2, pointRadius: 0, yAxisID: 'y2', order: 0 });
+        }
+        const money = v => '₹' + (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : v);
+        chart = new Chart(cv, { data: { labels, datasets: ds }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 350 }, interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, boxHeight: 10, font: { size: 11 }, padding: 10 } },
+                tooltip: { backgroundColor: 'rgba(4,9,17,.95)', borderColor: 'rgba(251,191,36,.4)', borderWidth: 1, titleColor: '#fff', bodyColor: '#cbd5e1', filter: i => i.raw !== 0 && i.raw !== null, callbacks: { label: c => ` ${c.dataset.label}: ${inr(c.raw)}`, footer: items => { const i = items[0] && items[0].dataIndex; if (i === undefined) return ''; const r = rows[i]; return 'Total ' + inr(Math.round(r.total)) + (L ? (mode === 'weeks' ? ` • ${Math.round(r.total / L * 100)}% of limit` : '') : ''); } } } },
+            scales: { x: { stacked: true, grid: { display: false }, ticks: tick }, y: { stacked: true, beginAtZero: true, grid: { color: grid }, ticks: Object.assign({ callback: money }, tick), suggestedMax: mode === 'weeks' && L ? L * 1.15 : undefined },
+                y2: { display: mode === 'week', position: 'right', beginAtZero: true, grid: { display: false }, ticks: Object.assign({ callback: money }, tick), suggestedMax: L ? L * 1.1 : undefined } },
+            onClick: (e, els) => { if (mode !== 'weeks' || !els.length) return; const i = els[0].index; pick = i === 11 ? null : i; paint(true); } } });
+    }
+    function alerts(D) {
+        const L = limit(); if (!L) return; const pct = D.cur.total / L * 100, key = 'cxWeekAlert', st = getJ(key, {}), wk = String(D.w0);
+        [[100, 'over'], [80, 'near']].some(([p, k]) => { if (pct < p || st[wk + k]) return false; st[wk + k] = 1; setJ(key, st);
+            const t = p === 100 ? `Weekly limit crossed: ${inr(D.cur.total)} of ${inr(L)}` : `80% of this week's limit used`, b = p === 100 ? `Over by ${inr(D.cur.total - L)} with ${7 - Math.floor((Date.now() - D.w0) / DAY)} day(s) left.` : `${inr(L - D.cur.total)} left for the rest of the week.`;
+            toast(t + '. ' + b, p === 100);
+            try { const d = new Date().toLocaleDateString('en-CA'), log = getJ('walletNotifLog', { d: '', items: [] }), cur = log.d === d ? log : { d, items: [] }; cur.items.unshift({ id: 'wk' + k + wk, tab: 'dashboard', t, b, at: Date.now() }); setJ('walletNotifLog', cur); window.CXN && CXN.paintBell(); } catch (e) {}
+            return true; });
+    }
+    function paint(force) {
+        const dash = $('viewDashboard'); if (!dash) return;
+        let el = $('cx17'); const deck = $('chartDeckContainer'), macro = deck && (deck.closest('.mt-10') || deck.parentElement);       // sits right under the Macro Scanners deck
+        if (!el) { const after = macro || $('cx13Board') || $('cx12Next') || $('cxCmd'); if (!after) return; after.insertAdjacentHTML('afterend', '<div id="cx17" class="glass-panel" data-jump="Weekly" style="margin-top:18px"></div>'); el = $('cx17'); }
+        else if (macro && el.previousElementSibling !== macro) { macro.after(el); el.style.marginTop = '18px'; }
+        const D = data(), s = JSON.stringify([mode, pick, limit(), D.weeks.map(w => Math.round(w.total)), D.days.map(d => Math.round(d.total)), D.cats, new Date().getDate()]);
+        if (!force && s === sig) return; sig = s;
+        const keepFocus = document.activeElement && document.activeElement.id === 'cx17L';
+        if (keepFocus) return;                                                   // do not redraw while you are typing the limit
+        el.innerHTML = html(D); try { window.CX.icons(); } catch (e) {} draw(D); alerts(D);
+        const j = $('cx13Jump'); if (j && !j.querySelector('[data-cx17]')) { const ins = j.querySelector('button[data-i="3"]'); const b = document.createElement('button'); b.type = 'button'; b.dataset.cx17 = '1'; b.textContent = 'Weekly'; b.onclick = e => { e.stopPropagation(); const t = $('cx17'); if (t) scrollTo({ top: t.getBoundingClientRect().top + scrollY - 70, behavior: 'smooth' }); }; j.insertBefore(b, ins || null); }
+    }
+    window.CX17 = {
+        setLimit: v => { const n = Math.max(0, Math.round(parseFloat(v) || 0)); setJ(LK, n); try { const st = getJ('cxWeekAlert', {}); Object.keys(st).forEach(k => { if (k.indexOf(String(weekStart(Date.now()))) === 0) delete st[k]; }); setJ('cxWeekAlert', st); } catch (e) {} paint(true); toast(n ? `Weekly limit set to ${inr(n)}.` : 'Weekly limit removed.'); },
+        mode: m => { mode = m; setJ('cxWeekMode', m); pick = null; paint(true); }, pick: i => { pick = i; paint(true); }, data, limit
+    };
+    const start = () => {
+        setTimeout(() => safe(() => paint(true)), 2200);
+        setInterval(() => { if (!document.hidden) safe(() => paint(false)); }, 4000);
+        const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); setTimeout(() => safe(() => paint(false)), 60); return r; };
+        window.addEventListener('storage', e => { if (e.key === LK) safe(() => paint(true)); });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

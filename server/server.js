@@ -21,13 +21,14 @@ function fileStore() {
   try { db = Object.assign(db, JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))); } catch (e) {}
   let timer = null;
   const save = () => { clearTimeout(timer); timer = setTimeout(() => { const tmp = DATA_FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(db)); fs.renameSync(tmp, DATA_FILE); }, 150); };
+  const lag = +process.env.WALLY_TEST_LATENCY || 0, w = () => lag ? new Promise(r => setTimeout(r, lag)) : null;   // tests only: behave like a slow remote database
   return {
     kind: 'file',
-    async entries(col) { return Object.entries(db[col] || {}); },
-    async all(col) { return Object.values(db[col] || {}); },
-    async get(col, id) { return (db[col] || {})[id] || null; },
-    async set(col, id, val) { (db[col] = db[col] || {})[id] = val; save(); },
-    async del(col, id) { if (db[col]) delete db[col][id]; save(); }
+    async entries(col) { await w(); return Object.entries(db[col] || {}); },
+    async all(col) { await w(); return Object.values(db[col] || {}); },
+    async get(col, id) { await w(); return (db[col] || {})[id] || null; },
+    async set(col, id, val) { await w(); (db[col] = db[col] || {})[id] = val; save(); },
+    async del(col, id) { await w(); if (db[col]) delete db[col][id]; save(); }
   };
 }
 function firestoreStore() {
@@ -119,7 +120,7 @@ const sendFast = (req, res, obj) => { const raw = Buffer.from(JSON.stringify(obj
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server error' }); });
 
 const AI = process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : '';
-const VERSION = 'mk3-r18';
+const VERSION = 'mk3-r19';
 // purge epoch: after a purge, anything older than this moment is refused, so a device that was offline cannot bring wiped data back
 let epoch = { at: 0, scope: '' };
 let purging = false;
@@ -142,7 +143,8 @@ const epochLoaded = Promise.resolve().then(() => store.get('meta', 'epoch')).the
   .then(async () => { if (process.env.LEDGER_RESET === 'off') return; try { if (await store.get('meta', RESET_ID)) return; const n = await wipeScope('ledger'); await store.set('meta', RESET_ID, { at: Date.now(), removed: n }); console.log('One-time ledger reset done.'); } catch (e) { console.error('Ledger reset failed:', e.message); } })
   .then(async () => { if (!DKEY) return; for (const c of ['transactions', 'wishlist', 'state', 'inbox', 'deleted', 'meta']) { try { await store.all(c); } catch (e) {} } });   // loading each list seals any old plain records straight away
 const stale = m => epoch.at && (+m || 0) < epoch.at;
-app.get('/api/health', (req, res) => { const pub = { ok: true, time: Date.now(), gate: gateOn(), version: VERSION, lock: 3 }; if (gateOn() && !signedIn(req) && !hasKey(req)) return res.json(pub); res.json(Object.assign(pub, { store: store.kind, locked: !!KEY, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false })); });   // details only for you
+app.get('/api/alive', (req, res) => { res.setHeader('Cache-Control', 'no-store'); const ok = signedIn(req); if (ok) touch(req); res.json({ ok }); });
+app.get('/api/health', (req, res) => { const pub = { ok: true, time: Date.now(), gate: gateOn(), version: VERSION, lock: 4, idle: process.env.PAGE_IDLE_SEC === 'off' ? 0 : PAGE_IDLE / 1000 }; if (gateOn() && !signedIn(req) && !hasKey(req)) return res.json(pub); res.json(Object.assign(pub, { store: store.kind, locked: !!KEY, up: Math.round(process.uptime()), ai: AI || false, awake: SELF_URL ? awake : false })); });   // details only for you
 // ---------------------------------------------------------------------------
 // password gate: nothing but the sign-in page is served until the password is given.
 //   SITE_PASSWORD  the password you type to open the site (falls back to WALLY_KEY when not set)
@@ -166,6 +168,13 @@ const cookieOf = req => { const m = String(req.headers.cookie || '').match(/(?:^
 const signedIn = req => { const t = cookieOf(req), exp = +t.split('.')[0]; return gateOn() && exp > Date.now() && same(t, sign(exp)); };
 const hasKey = req => !!KEY && same(req.get('x-wally-key') || req.query.key || '', KEY);
 const SESSION_MS = 12 * 3600000;
+// presence: an open window pings the server every few seconds. Opening the site again after every window has been
+// gone for PAGE_IDLE_SEC (default 90 s) always shows the sign-in page, enforced here on the server, so it works
+// even if the browser restored the old tab, kept the cookie, or ran an old cached copy of the app.
+const PAGE_IDLE = Math.max(15, +process.env.PAGE_IDLE_SEC || 90) * 1000, seen = new Map(), passes = new Map();
+const touch = req => { const t = cookieOf(req); if (!t) return; seen.set(t, Date.now()); if (seen.size > 300) { const cut = Date.now() - 864e5; for (const [k, v] of seen) if (v < cut) seen.delete(k); } };
+const issuePass = () => { const n = crypto.randomBytes(9).toString('base64url'); passes.set(n, Date.now()); for (const [k, v] of passes) if (Date.now() - v > 120000) passes.delete(k); return n; };
+const usePass = n => { const at = passes.get(String(n || '')); if (!at) return false; passes.delete(String(n)); return Date.now() - at < 120000; };
 const setCookie = (req, res, val, age) => res.setHeader('Set-Cookie', `wally_s=${encodeURIComponent(val)}; Path=/; HttpOnly; SameSite=Lax${age === null ? '' : '; Max-Age=' + age}${(req.secure || req.get('x-forwarded-proto') === 'https') ? '; Secure' : ''}`);
 app.set('trust proxy', 1);
 app.use((req, res, next) => { authLoaded.then(() => next()); });
@@ -177,7 +186,7 @@ const LOGIN = (msg, next) => `<!doctype html><html lang="en"><head><meta charset
 app.post('/login', express.urlencoded({ extended: false, limit: '2kb' }), (req, res) => {
   const ip = req.ip || 'x', now = Date.now(), t = tries.get(ip) || { n: 0, at: now }; if (now - t.at > 15 * 60000) { t.n = 0; t.at = now; }
   if (t.n >= 8) return res.status(429).type('html').send(LOGIN('Too many wrong tries. Wait 15 minutes, sir.'));
-  if (gateOn() && checkPass(req.body && req.body.password)) { tries.delete(ip); setCookie(req, res, sign(now + SESSION_MS), null); const nx = String((req.body && req.body.next) || '/'); return res.redirect(303, (/^\/(?!\/)[\w\-./]*$/.test(nx) ? nx : '/') + '?u=1'); }
+  if (gateOn() && checkPass(req.body && req.body.password)) { tries.delete(ip); setCookie(req, res, sign(now + SESSION_MS), null); const nx = String((req.body && req.body.next) || '/'); return res.redirect(303, (/^\/(?!\/)[\w\-./]*$/.test(nx) ? nx : '/') + '?u=' + issuePass()); }
   t.n++; tries.set(ip, t); setTimeout(() => res.status(401).type('html').send(LOGIN('That password is not right.')), 600);
 });
 // change the sign-in password from inside the app (needs a signed-in session and the current password)
@@ -202,26 +211,29 @@ app.use('/api', (req, res, next) => {
   if (!KEY && !gateOn()) return next();
   if (CAPTURE_ONLY.test(req.path)) { if (hasKey(req) || hasCapture(req)) return next(); return res.status(401).type(req.method === 'GET' ? 'html' : 'json').send(req.method === 'GET' ? '<p style="font-family:sans-serif">This save link needs the capture key. Re-drag the bookmark from the app.</p>' : '{"error":"capture key required"}'); }   // never by cookie alone: another website cannot add things in your name
   if (CAPTURE_FORM.test(req.path) && (hasCapture(req) || signedIn(req) || hasKey(req))) return next();
-  if (hasKey(req) || signedIn(req)) return next();
+  if (signedIn(req)) { touch(req); return next(); }
+  if (hasKey(req)) return next();
   res.status(401).json({ error: 'key required' });
 });
 // every new tab or app launch asks for the password again: pages carry a small check that signs out a window that was not opened by signing in
 const TAB_LOCK = `<script>(function(){try{var S=sessionStorage,L=localStorage,K='cxUnlocked',now=Date.now();
-var grace=function(){var v=L.getItem('cxLockGrace');return v===null||isNaN(+v)?0:+v;};
+var grace=function(){var v=L.getItem('cxLockGrace');return v===null||isNaN(+v)?30:+v;};
 var go=function(){S.removeItem(K);location.replace('/login?next='+encodeURIComponent(location.pathname));};
-if(/[?&]u=1/.test(location.search)){S.setItem(K,'1');history.replaceState(null,'',location.pathname+location.hash);}
+if(/[?&]u=[\\w-]+/.test(location.search)){S.setItem(K,'1');history.replaceState(null,'',location.pathname+location.hash);}
 else if(S.getItem(K)){var left=+S.getItem('cxLeftAt')||0,alive=+S.getItem('cxAlive')||0,keep=+S.getItem('cxKeep')||0,last=Math.max(left,alive);if(!(keep&&now-keep<30000)&&(!last||now-last>6000))S.removeItem(K);}
 S.removeItem('cxLeftAt');S.removeItem('cxKeep');
 if(!S.getItem(K)){var st=document.createElement('style');st.textContent='body>*:not(#cxLockMsg){display:none!important}';document.documentElement.appendChild(st);
 if(navigator.onLine){go();}else{document.addEventListener('DOMContentLoaded',function(){var d=document.createElement('div');d.id='cxLockMsg';d.style.cssText='position:fixed;inset:0;display:grid;place-items:center;background:#030508;color:#7dd3fc;font:600 15px system-ui;text-align:center;padding:24px;z-index:2147483647';d.textContent='Wally MK 3 is locked. Connect to the internet to sign in.';document.body.appendChild(d);});}return;}
-window.__cxLock=3;var beat=function(){if(!document.hidden)S.setItem('cxAlive',String(Date.now()));};beat();setInterval(beat,2000);addEventListener('pagehide',function(){S.setItem('cxLeftAt',String(Date.now()));});addEventListener('pageshow',function(e){if(e.persisted){var a=+S.getItem('cxAlive')||0;if(Date.now()-a>6000+grace()*1000)go();}});
+window.__cxLock=4;var pinged=0,ping=function(){if(Date.now()-pinged<15000)return;pinged=Date.now();try{fetch('/api/alive',{cache:'no-store',credentials:'same-origin'}).catch(function(){})}catch(e){}};var beat=function(){if(!document.hidden){S.setItem('cxAlive',String(Date.now()));ping();}};beat();setInterval(beat,2000);addEventListener('pagehide',function(){S.setItem('cxLeftAt',String(Date.now()));});addEventListener('pageshow',function(e){if(e.persisted){var a=+S.getItem('cxAlive')||0;if(Date.now()-a>6000+grace()*1000)go();}});
 var hid=0;document.addEventListener('visibilitychange',function(){if(document.hidden){hid=Date.now();return;}if(!hid)return;var away=Date.now()-hid;hid=0;var pk=+S.getItem('cxPicker')||0,own=+S.getItem('cxOwn')||0;
 if(pk&&Date.now()-pk<600000){S.removeItem('cxPicker');return;}if(own&&Date.now()-own<1800000){S.removeItem('cxOwn');return;}if(away>grace()*1000+800)go();});
 document.addEventListener('click',function(e){var t=e.target,l=t&&t.closest&&t.closest('label');if(t&&t.closest&&(t.closest('input[type=file]')||(l&&l.querySelector('input[type=file]'))))S.setItem('cxPicker',String(Date.now()));},true);
 var wo=window.open;window.open=function(u){try{if(new URL(u,location.href).origin===location.origin)S.setItem('cxOwn',String(Date.now()));}catch(e){}return wo.apply(window,arguments);};
 }catch(e){}})();</script>`;
 const PAGES = { '/': 'index.html', '/index.html': 'index.html', '/fitness/': 'fitness/index.html', '/fitness/index.html': 'fitness/index.html', '/fitness': 'fitness/index.html' };
-app.get(Object.keys(PAGES), (req, res, next) => { if (!gateOn() || !signedIn(req)) return next(); fs.readFile(path.join(__dirname, '..', PAGES[req.path]), 'utf8', (e, html) => { if (e) return next(); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'text/html; charset=utf-8'); const body = Buffer.from(html.replace(/<head[^>]*>/i, m => m + TAB_LOCK)); if (/\bgzip\b/.test(req.get('accept-encoding') || '')) { res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); return res.end(zlib.gzipSync(body)); } res.end(body); }); });
+app.get(Object.keys(PAGES), (req, res, next) => { if (!gateOn() || !signedIn(req)) return next();
+  if (usePass(req.query.u)) touch(req);                                                                   // straight after typing the password
+  else if (process.env.PAGE_IDLE_SEC !== 'off' && Date.now() - (seen.get(cookieOf(req)) || 0) > PAGE_IDLE) { res.setHeader('Cache-Control', 'no-store'); return res.redirect(302, '/login?next=' + encodeURIComponent(req.path)); } fs.readFile(path.join(__dirname, '..', PAGES[req.path]), 'utf8', (e, html) => { if (e) return next(); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'text/html; charset=utf-8'); const body = Buffer.from(html.replace(/<head[^>]*>/i, m => m + TAB_LOCK)); if (/\bgzip\b/.test(req.get('accept-encoding') || '')) { res.setHeader('Content-Encoding', 'gzip'); res.setHeader('Vary', 'Accept-Encoding'); return res.end(zlib.gzipSync(body)); } res.end(body); }); });
 // the sign-in page on its own address: a new window shows it even while another window is signed in (that one stays signed in)
 const nextOf = v => /^\/(?!\/)[\w\-./]*$/.test(String(v || '')) ? String(v) : '/';
 app.get('/login', (req, res) => { if (!gateOn()) return res.redirect(302, '/'); res.setHeader('Cache-Control', 'no-store'); res.type('html').send(LOGIN('', nextOf(req.query.next))); });
