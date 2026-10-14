@@ -120,7 +120,7 @@ const sendFast = (req, res, obj) => { const raw = Buffer.from(JSON.stringify(obj
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server error' }); });
 
 const AI = process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : '';
-const VERSION = 'mk3-r19';
+const VERSION = 'mk3-r20';
 // purge epoch: after a purge, anything older than this moment is refused, so a device that was offline cannot bring wiped data back
 let epoch = { at: 0, scope: '' };
 let purging = false;

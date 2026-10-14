@@ -5795,7 +5795,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             let cap = 0; const ack = []; if (box && box.length) { box.forEach(m => { let n = 0; window.__cxSmsNext = () => 'sms-' + m.id + (n++ ? '-' + n : ''); const before = transactions.length; try { window.CXSms.ingest(m.text, 'phone SMS'); } finally { window.__cxSmsNext = null; } cap += Math.max(0, transactions.length - before); ack.push(m.id); }); }
             // everything else: newest change wins per item; the very first link on a device never overwrites the server
             const first = !localStorage.getItem('walletCloudLinked'); let pulled = 0, pushed = 0, quiet = 0; const push = {};
-            const QUIET = new Set(['walletWeekLimit', 'walletWishPlan', 'walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
+            const QUIET = new Set(['walletBudgets', 'walletWeekLimit', 'walletWishPlan', 'walletNotifHist', 'walletNotifRead', 'walletReminders', 'walletNoSeed', 'levelup_home_v7']);   // read fresh by the app each time: no reload needed
             if (sv) {
                 const mt = MT();
                 new Set(Object.keys(sv).concat(Object.keys(localStorage).filter(synced))).forEach(k => {
@@ -6849,7 +6849,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         const wl = wishlistItems.filter(w => !w.purchased), can = wl.filter(w => +w.price > 0 && +w.price <= bal.liquid).length;
         return [
             { s: 'L n0', c: '#00e5ff', k: 'Liquid assets', v: inr(bal.liquid), d: 'Emergency fund ' + inr(bal.ef || 0), tip: 'Cash, bank and UPI you can use now. Tap for the ledger.', go: () => { const e = $('ledgerList') || $('aiTerminal'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
-            { s: 'L n1', c: '#fbbf24', k: 'Safe to spend today', v: inr(st.safe), d: st.limitBy === 'cash' ? (st.cash <= 0 ? 'no cash in the ledger yet' : 'limited by your cash ' + inr(st.cash)) : (st.dim - st.day + 1) + ' days left' + (st.budgetSet ? '' : ' • default ₹25k budget'), tip: 'The smaller of your budget left and your cash, divided by the days left in the month. With no income recorded it is ₹0. Tap for the month forecast.', go: () => { try { getCASPERForecast(); } catch (e) {} const e = $('aiTerminal'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); } },
+            { s: 'L n1', c: '#fbbf24', k: 'Safe to spend today', v: inr(st.safe), d: st.limitBy === 'cash' ? (st.cash <= 0 ? 'no cash in the ledger yet' : 'limited by your cash ' + inr(st.cash)) : (st.left <= 0 ? 'budget used up: ' + inr(st.spent) + ' of ' + inr(st.budget) : inr(st.left) + ' of ' + inr(st.budget) + ' left') + ' • tap to edit', tip: 'The smaller of your budget left and your cash, divided by the days left in the month. With no income recorded it is ₹0. Tap to change your monthly budget.', go: () => { if (window.CX18) return CX18.budget(); try { getCASPERForecast(); } catch (e) {} } },
             { s: 'L n2', c: pct >= 90 ? '#f87171' : '#34d399', k: 'Spent today', v: inr(spent), d: pct + '% of the month’s budget used', tip: 'Today’s expenses and how much of the budget is gone. Tap for the spend map.', go: () => { const e = $('upgHeatmap'); if (e) e.closest('.glass-panel').scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
             { s: 'R n0', c: late ? '#f87171' : '#c6f432', k: 'Planner', v: due + ' due today', d: late ? late + ' overdue' : tk.length + ' open in total', tip: 'Open tasks from the Planner. Tap to open it.', go: () => switchMainView('planner') },
             { s: 'R n1', c: '#f97316', k: 'Habits', v: hDone + ' / ' + hAll, d: hAll && hDone === hAll ? 'all done today' : 'ticked today', tip: 'Growth habits ticked today. Tap to open Growth.', go: () => switchMainView('growth') },
@@ -7360,7 +7360,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
             const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
             add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
-            if (h) add('Server is up to date', h.version === 'mk3-r19', h.version || 'older file', h.version === 'mk3-r19' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Server is up to date', h.version === 'mk3-r20', h.version || 'older file', h.version === 'mk3-r20' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
             if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
             const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
             add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
@@ -8042,6 +8042,175 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         setInterval(() => { if (!document.hidden) safe(() => paint(false)); }, 4000);
         const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); setTimeout(() => safe(() => paint(false)), 60); return r; };
         window.addEventListener('storage', e => { if (e.key === LK) safe(() => paint(true)); });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 20 (appended; nothing above is changed)
+   1 monthly budget editor (the ₹25,000 default is now yours to change)
+   2 dashboard organised into clear sections you can fold away
+   3 smooth mode: drops the heavy glass blur and background animation (on by default on phones)
+   4 device tools: make every device match this one, or refresh this device from the server
+   5 auto-update: a device running an old copy of the app updates itself
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, esc, inr, getJ, setJ, toast, mKey, icons } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v18', e); } };
+    const APP_VERSION = 'mk3-r20';
+    window.__cxApp = APP_VERSION;
+
+    // ---------------------------------------------------------------- 1. budget
+    function budgetModal() {
+        const st = CX.monthStats(), m = mKey(Date.now()), own = (typeof monthlyBudgets !== 'undefined' && monthlyBudgets[m]) ? 'month' : 'all';
+        const old = $('cx18Bud'); if (old) old.remove();
+        document.body.insertAdjacentHTML('beforeend', `<div class="cx-modal" id="cx18Bud"><div style="width:min(460px,100%)"><h3><span>Monthly budget</span><button class="cx-btn red sm" onclick="document.getElementById('cx18Bud').remove()">Close</button></h3>
+            <p style="font-size:13px;color:#cbd5e1;line-height:1.55">How much you plan to spend in a month. Safe to spend, the month forecast and the budget bars all use it.</p>
+            <p class="cx-lbl" style="margin-top:12px">Budget (₹ per month)</p><input id="cx18BudV" class="cx-in w-full" type="number" min="0" step="500" inputmode="numeric" value="${Math.round(st.budget)}" onkeydown="if(event.key==='Enter')CX18.saveBudget()">
+            <label class="cx-row" style="margin-top:10px;cursor:pointer"><input type="radio" name="cx18BudS" value="all" class="form-check" ${own === 'all' ? 'checked' : ''}><span class="text-sm text-gray-200 flex-1">Every month</span></label>
+            <label class="cx-row" style="margin-top:6px;cursor:pointer"><input type="radio" name="cx18BudS" value="month" class="form-check" ${own === 'month' ? 'checked' : ''}><span class="text-sm text-gray-200 flex-1">Only ${new Date().toLocaleDateString('en-GB', { month: 'long' })}</span></label>
+            <div style="margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);font-size:12.5px;color:#cbd5e1;line-height:1.8">
+                Budget ${inr(st.budget)}${st.budgetSet ? '' : ' (the built-in default)'} − spent this month ${inr(st.spent)} = <b style="color:${st.left < 0 ? '#f87171' : '#34d399'}">${st.left < 0 ? 'over by ' + inr(-st.left) : inr(st.left) + ' left'}</b><br>
+                Cash in your ledger: <b style="color:#fff">${inr(st.cash)}</b><br>
+                Safe to spend today = the smaller of the two ÷ ${st.dim - st.day + 1} days = <b style="color:#fbbf24">${inr(st.safe)}</b>${st.cash <= 0 ? '<br><span style="color:#fbbf24">It stays ₹0 until you add your income or a starting balance (Data Entry → income).</span>' : ''}</div>
+            <button class="cx-btn green" style="margin-top:14px;width:100%" onclick="CX18.saveBudget()">Save budget</button></div></div>`);
+        setTimeout(() => { const i = $('cx18BudV'); if (i) { i.focus(); i.select(); } }, 50);
+    }
+    function saveBudget() {
+        const v = Math.max(0, Math.round(parseFloat(($('cx18BudV') || {}).value) || 0)), scope = (document.querySelector('input[name=cx18BudS]:checked') || {}).value || 'all', m = mKey(Date.now());
+        if (!v) return toast('Type a budget above ₹0, sir.', true);
+        try { const b = Object.assign({}, typeof monthlyBudgets !== 'undefined' ? monthlyBudgets : {}); if (scope === 'all') { b['default'] = v; delete b[m]; } else b[m] = v; monthlyBudgets = b; localStorage.setItem('walletBudgets', JSON.stringify(b)); } catch (e) {}
+        const el = $('cx18Bud'); if (el) el.remove(); try { updateUI(); } catch (e) {} safe(sections); toast(`Budget set: ${inr(v)} ${scope === 'all' ? 'a month' : 'for this month'}.`);
+    }
+    // the original "set budget" button saved under the month filter ("all"), which nothing reads: send it here
+    window.setGoal = budgetModal;
+
+    // a budget changed on another device arrives without a reload
+    function budgetPull() { try { const raw = localStorage.getItem('walletBudgets'); if (!raw || typeof monthlyBudgets === 'undefined' || raw === JSON.stringify(monthlyBudgets)) return; monthlyBudgets = JSON.parse(raw); updateUI(); } catch (e) {} }
+    // ---------------------------------------------------------------- 2. sections
+    const SECS = [
+        ['today', 'Today', 'Greeting, what is next, and your money at a glance', '#00e5ff', ['cxCmd', 'cx12Next', 'cxIntro', 'pendingContainer']],
+        ['money', 'Money', 'Balances, cash flow, quick stats and your card', '#34d399', [() => up(q('Total Liquid Assets')), () => up(q('Micro-Stats Telemetry')), () => up(q('Active Credit Card'))]],
+        ['charts', 'Charts and spending', 'Macro scanners, your weekly limit and insights', '#fbbf24', [() => up($('chartDeckContainer')), 'cx17', 'cx13Board']],
+        ['ledger', 'Ledger', 'Every entry, and the form to add new ones', '#a855f7', [() => up($('ledgerList')) || up(q('Main Ledger'))]],
+        ['tools', 'Tools', 'Spend map, caps, recurring bills and data tools', '#f97316', ['upgradeDeck']]
+    ];
+    const dash = () => $('viewDashboard');
+    const q = txt => { const v = dash(); if (!v) return null; return [...v.querySelectorAll('h2,h3')].find(h => h.textContent.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(txt.toLowerCase())) || null; };
+    const up = el => { const v = dash(); if (!el || !v) return null; let x = el; while (x && x.parentElement && x.parentElement !== v && !(x.parentElement.classList && x.parentElement.classList.contains('cx18-body'))) x = x.parentElement; return x && x !== v ? x : null; };
+    const folds = () => getJ('cxDashFold', {});
+    function sections() {
+        const v = dash(), cmd = $('cxCmd'); if (!v || !cmd) return;
+        SECS.forEach(([key, title, sub, col], i) => {
+            let s = $('cx18_' + key);
+            if (!s) {
+                v.insertAdjacentHTML('beforeend', `<section id="cx18_${key}" class="cx18-sec ${folds()[key] ? 'fold' : ''}" style="--sc:${col}"><header class="cx18-hd" onclick="CX18.fold('${key}')"><span class="cx18-n">${String(i + 1).padStart(2, '0')}</span><div><h2>${title}</h2><p>${sub}</p></div>${key === 'money' ? '<button type="button" class="cx18-chip" onclick="event.stopPropagation();CX18.budget()" title="Change your monthly budget"></button>' : ''}<i class="cx18-chev">▾</i></header><div class="cx18-body"></div></section>`);
+                s = $('cx18_' + key);
+            }
+            const body = s.querySelector('.cx18-body');
+            SECS[i][4].forEach(t => { const el = typeof t === 'function' ? safe(t) : $(t); if (el && el.parentElement !== body && el !== s && !el.contains(s)) body.appendChild(el); });
+        });
+        // keep the sections in order, right after the section bar
+        const jump = $('cx13Jump'); let prev = jump && jump.parentElement === v ? jump : null;
+        SECS.forEach(([key]) => { const s = $('cx18_' + key); if (!s) return; if (prev) { if (prev.nextElementSibling !== s) prev.after(s); } else if (v.firstElementChild !== s) v.prepend(s); prev = s; });
+        const chip = document.querySelector('#cx18_money .cx18-chip'); if (chip) { const st = CX.monthStats(); const t = `Budget ${inr(st.budget)} ✎`; if (chip.textContent !== t) chip.textContent = t; }
+    }
+    function fold(key) { const f = folds(); f[key] = !f[key]; setJ('cxDashFold', f); const s = $('cx18_' + key); if (s) s.classList.toggle('fold', !!f[key]); if (!f[key]) setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60); }
+
+    // ---------------------------------------------------------------- 3. smooth mode
+    const phone = () => matchMedia('(pointer: coarse)').matches || innerWidth < 900;
+    const smoothOn = () => { const v = localStorage.getItem('cxSmooth'); return v === null ? phone() : v === '1'; };
+    function applySmooth() {
+        const on = smoothOn(); document.documentElement.classList.toggle('cx18-smooth', on);
+        try { if (window.Chart) Chart.defaults.animation = on ? false : Chart.defaults.animation; } catch (e) {}
+        const bg = $('cxBg'); if (bg) bg.style.display = on ? 'none' : '';
+        const b = $('cx18Smooth'); if (b) { b.classList.toggle('on', on); b.title = on ? 'Smooth mode is on: fewer effects, faster scrolling' : 'Smooth mode is off: full effects'; }
+    }
+
+    // ---------------------------------------------------------------- 4. device tools
+    async function master() {
+        const pw = prompt('Make every device match THIS device?\n\nThe server copy is replaced by what is on this device, and every other device wipes itself and loads this copy the next time it opens.\n\nType your sign-in password to continue:');
+        if (pw === null) return;
+        toast('Replacing the server copy with this device…');
+        try {
+            window.__cxHold = true;
+            const r = await fetch(API_BASE + '/purge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'all', password: pw }) }), j = await r.json().catch(() => ({}));
+            if (!r.ok) { window.__cxHold = false; return toast(j.error || ('The server refused (' + r.status + ').'), true); }
+            localStorage.setItem('cxEpoch', String(j.epoch.at));
+            localStorage.removeItem('cxItemMT');                                   // every item counts as new, so all of it is sent
+            const now = Date.now() + 1000, mt = {}; Object.keys(localStorage).forEach(k => { if (/^(wallet|levelup_home)/.test(k) || k === 'keepNotes') mt[k] = now; }); localStorage.setItem('cxMT', JSON.stringify(mt));
+            window.__cxHold = false;
+            await window.CXSys.sync();
+            toast('Done, sir. This device is now the master copy; the others will match it when they open.');
+        } catch (e) { window.__cxHold = false; toast('That did not finish: ' + e.message, true); }
+    }
+    function fresh() {
+        if (!confirm('Throw away the copy on THIS device and load everything again from the server?\n\nUse this on a device that shows old data. Nothing on the server or your other devices changes.')) return;
+        try { window.__cxWipe('all'); localStorage.removeItem('cxItemMT'); localStorage.removeItem('cxMT'); localStorage.removeItem('cxEpoch'); } catch (e) {}
+        try { sessionStorage.setItem('cxKeep', String(Date.now())); } catch (e) {} location.reload();
+    }
+    function deviceTools() {
+        const m = $('cxSysModal'); if (!m || $('cx18Dev')) return; const on = m.querySelector('.cx-btn.on'); if (!on || on.textContent.trim() !== 'Cloud') return;
+        m.firstElementChild.insertAdjacentHTML('beforeend', `<div id="cx18Dev" style="margin-top:16px;padding:14px;border-radius:14px;border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.04)"><p class="cx-lbl" style="color:#fbbf24">Devices showing different data?</p>
+            <p style="font-size:12.5px;color:#cbd5e1;line-height:1.6;margin:6px 0 10px">On the device that is <b class="text-white">right</b> (usually your laptop) press the first button. On a device that shows <b class="text-white">old</b> data, press the second.</p>
+            <div class="flex flex-wrap gap-2"><button class="cx-btn sm" style="border-color:#fbbf24;color:#fbbf24" onclick="CX18.master()">Make every device match this one</button><button class="cx-btn sm" onclick="CX18.fresh()">Reload this device from the server</button></div></div>`);
+    }
+
+    // ---------------------------------------------------------------- 5. auto-update
+    async function versionCheck() {
+        if (!/^https?:/.test(location.protocol)) return;
+        try {
+            const h = await (await fetch(API_BASE + '/health', { cache: 'no-store' })).json(); if (!h.version || h.version === APP_VERSION) return;
+            const last = +sessionStorage.getItem('cxUpd') || 0; if (Date.now() - last < 10 * 60000) return; sessionStorage.setItem('cxUpd', String(Date.now()));
+            if (h.version > APP_VERSION) {                                          // the server is newer than this copy of the app: fetch the new one
+                try { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) {}
+                try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) {}
+                toast('Updating to the newest version…'); sessionStorage.setItem('cxKeep', String(Date.now())); setTimeout(() => location.reload(), 600);
+            }
+        } catch (e) {}
+    }
+
+    // ---------------------------------------------------------------- styles
+    const css = document.createElement('style');
+    css.textContent = `
+    .cx18-sec { margin: 0 0 22px; border-radius: 20px; }
+    .cx18-hd { display: flex; align-items: center; gap: 14px; padding: 14px 6px 12px; cursor: pointer; user-select: none; border-bottom: 1px solid color-mix(in srgb, var(--sc) 25%, transparent); margin-bottom: 16px; }
+    .cx18-n { font: 800 12px 'Oxanium', sans-serif; color: #000; background: var(--sc); border-radius: 8px; padding: 4px 7px; box-shadow: 0 0 14px color-mix(in srgb, var(--sc) 55%, transparent); }
+    .cx18-hd div { flex: 1; min-width: 0; } .cx18-hd h2 { font: 800 15px 'Oxanium', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--sc); margin: 0; } .cx18-hd p { font-size: 12px; color: #64748b; margin: 2px 0 0; }
+    .cx18-chev { font-style: normal; color: #64748b; font-size: 16px; transition: transform .25s; } .cx18-sec.fold .cx18-chev { transform: rotate(-90deg); }
+    .cx18-chip { padding: 6px 11px; border-radius: 10px; font: 800 10.5px 'Oxanium', sans-serif; letter-spacing: .1em; color: #34d399; border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); white-space: nowrap; } .cx18-chip:hover { background: #34d399; color: #04130c; }
+    .cx18-sec.fold .cx18-body { display: none; } .cx18-sec.fold .cx18-hd { margin-bottom: 0; }
+    .cx18-body { display: flex; flex-direction: column; gap: 18px; } .cx18-body > * { margin-top: 0 !important; margin-bottom: 0 !important; } .cx18-body > .hidden { display: none !important; }
+    .cx18-body > #cx12Next, .cx18-body > #cx13Board { margin: 0 !important; }
+    #cx18_ledger, #cx18_tools { content-visibility: auto; contain-intrinsic-size: auto 900px; }
+    #cx13Jump button[data-cx18] { color: #fbbf24; }
+    #cx18Smooth { flex: 0 0 auto; } #cx18Smooth.on { color: #34d399 !important; }
+    /* smooth mode: the costliest effects off */
+    .cx18-smooth *, .cx18-smooth *::before, .cx18-smooth *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    .cx18-smooth .glass-panel { background: rgba(7,13,24,.97) !important; box-shadow: 0 1px 0 rgba(255,255,255,.04) inset !important; }
+    .cx18-smooth .cx-spin, .cx18-smooth .cx-pulse, .cx18-smooth [class*="animate-"], .cx18-smooth .fx-ring * { animation: none !important; }
+    .cx18-smooth .animate-slide-up { opacity: 1 !important; transform: none !important; }
+    .cx18-smooth .cx-hud svg, .cx18-smooth .glass-panel { filter: none !important; }
+    @media (max-width: 640px) { .cx18-sec { margin-bottom: 16px; } .cx18-hd { padding: 10px 2px; gap: 10px; margin-bottom: 12px; } .cx18-hd h2 { font-size: 13px; } .cx18-hd p { display: none; } .cx18-body { gap: 12px; } }
+    `;
+    document.head.appendChild(css);
+
+    window.CX18 = { budget: budgetModal, saveBudget, fold, master, fresh, smooth: v => { localStorage.setItem('cxSmooth', v ? '1' : '0'); applySmooth(); toast(v ? 'Smooth mode on: lighter effects, faster scrolling.' : 'Smooth mode off: full effects.'); }, version: APP_VERSION, sections };
+    function bar() {
+        const j = $('cx13Jump'); if (!j || $('cx18Smooth')) return;
+        const diag = j.querySelector('[data-diag]'); const b = document.createElement('button'); b.type = 'button'; b.id = 'cx18Smooth'; b.textContent = '⚡ Smooth'; b.onclick = e => { e.stopPropagation(); CX18.smooth(!smoothOn()); }; j.insertBefore(b, diag || null);
+        SECS.forEach(([key, title]) => { if (j.querySelector(`[data-cx18="${key}"]`)) return; });
+        applySmooth();
+    }
+    const start = () => {
+        applySmooth(); safe(versionCheck);
+        setTimeout(() => { safe(sections); safe(bar); }, 2000);
+        setInterval(() => { if (!document.hidden) { safe(sections); safe(bar); safe(budgetPull); } }, 3000);
+        new MutationObserver(() => safe(deviceTools)).observe(document.body, { childList: true });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) safe(versionCheck); });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
