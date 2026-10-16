@@ -282,3 +282,14 @@ Top of the Wishlist and Library pages.
 - **⚡ Smooth** (in the section bar): turns off the glass blur, the moving background and the spinning rings, and chart animations. On by default on phones and tablets.
 - **Devices showing different data:** shield → Cloud → "Make every device match this one" (on the device that is right; asks for your password) or "Reload this device from the server" (on the device with old data).
 - **Auto-update:** a device running an older copy of the app than the server updates itself when you open it.
+
+## Round 21
+- **Every figure fits:** micro-telemetry values, cashflow amounts and allocation figures shrink to fit, and any label that would be cut off wraps instead.
+- **Info (?)** on all six micro-telemetry cards: Health, Daily Burn, Velocity, Liabilities, Runway, Top Expense.
+- **Period bar** above Macro Scanners: This month · Last month · All time · pick any month. It drives every chart (and the page filter).
+- **Month Race:** choose both months (e.g. Oct vs Jul), with an even-pace line to your budget, the budget line, and a "Budget ✎" button to change it.
+- **Charts retired** (they repeated others): Savings Velocity (= Savings Rate), Distribution (= Category Spread), Balance Curve (= Cumulative Wealth). **New:** Cash Runway Forecast (90-day projection with the day cash would run out), Plan vs Actual (50/25/20/5 buckets for the month), Fixed vs Variable (recurring costs against everyday spending, 6 months).
+- **All-time line** (7-Day Cashflow → ALL-TIME LINE): every day since your first entry, scrollable sideways; ranges and month chips; a searchable list of every transaction grouped by month with totals. Tap a day to jump to its entries.
+- **Period Cashflow** has its own month picker (independent of the page filter; "Follow page filter" restores the old behaviour).
+- **C.A.S.P.E.R. chat:** minimise (—), maximise (⤢ or double-click the title), and a red dot with a count on the chat button when an answer arrives while it is closed or minimised.
+- **Arc reactor** redrawn: 10-coil toroid, rotating rings, inverted triangle core. **Blueprint theme:** drafting grid, drawing title blocks on each section (DWG · REV · SCALE), engineering callouts.

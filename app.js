@@ -8214,3 +8214,332 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 21 (appended; nothing above is changed)
+   1 every figure fits (no more "Food & Dining (₹3,…")
+   2 info buttons on all six micro-telemetry cards
+   3 one period filter for every chart, plus chart-specific controls
+   4 Month Race rebuilt: pick any two months, budget line you can change
+   5 look-alike charts retired (Savings Velocity, Distribution, Balance Curve);
+     new: Cash Runway Forecast, Plan vs Actual (50/25/20/5), Fixed vs Variable
+   6 All-time view: every day since your first entry, scrollable, with every transaction
+   7 Period Cashflow has its own month picker
+   8 C.A.S.P.E.R. chat: minimise, maximise, and a dot when an answer is ready
+   9 arc reactor redrawn (inverted triangle) and a blueprint theme
+   ============================================================================ */
+(function () {
+    'use strict';
+    if (!window.CX) return;
+    const { $, esc, inr, getJ, setJ, toast, mKey, icons } = window.CX;
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v19', e); } };
+    const MN = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }); };
+    const MNL = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
+    const real = () => transactions.filter(t => t.account !== 'Emergency' && Number.isFinite(t.amount));
+    const months = () => { const s = new Set(real().map(t => mKey(t.timestamp))); s.add(mKey(Date.now())); return [...s].sort(); };
+    const budgetOf = k => { try { return (monthlyBudgets[k] || monthlyBudgets['default']) || 25000; } catch (e) { return 25000; } };
+    const rs = v => '₹' + Math.round(v).toLocaleString('en-IN');
+    const short = v => { const a = Math.abs(v); return (v < 0 ? '-' : '') + '₹' + (a >= 1e5 ? (a / 1e5).toFixed(a >= 1e6 ? 0 : 1) + 'L' : a >= 1000 ? (a / 1000).toFixed(a >= 1e4 ? 0 : 1) + 'k' : Math.round(a)); };
+    const INFO = t => `<span class="info-icon cx16-i" data-info="${esc(t)}" tabindex="0" role="button" aria-label="What is this?"><i data-lucide="help-circle"></i></span>`;
+
+    // ---------------------------------------------------------------- 1. fit every figure
+    const FIT = ['#healthScore', '#statBurnRate', '#statSavingsRate', '#statLiabilities', '#statRunway', '#statTopExpenseName', '#currMonthIncome', '#currMonthExpense', '#currMonthNet', '#netBalance', '#emergencyFundBalance', '#allocNeeds', '#allocWants', '#allocWealth', '#allocCarefree', '#allocIncomeDisplay'];
+    function fit(el) {
+        if (!el || !el.offsetParent) return; const key = el.textContent + '|' + el.clientWidth; if (el.dataset.fit === key) return;
+        el.style.fontSize = ''; const base = parseFloat(getComputedStyle(el).fontSize) || 16; let f = base;
+        while (el.scrollWidth > el.clientWidth + 1 && f > 11) { f -= 1; el.style.fontSize = f + 'px'; }
+        el.dataset.fit = el.textContent + '|' + el.clientWidth;
+    }
+    const unclip = () => document.querySelectorAll('#viewDashboard .truncate, #viewDashboard .line-clamp-1').forEach(e => { if (e.classList.contains('cx19-wrap') || FIT.some(f => e.matches(f)) || e.closest('#ledgerList, #cx19AllL, .chart-stack-card canvas')) return; if (e.offsetParent && e.scrollWidth > e.clientWidth + 1) e.classList.add('cx19-wrap'); });   // any cut-off label wraps instead
+    const fitAll = () => { FIT.forEach(s => document.querySelectorAll(s).forEach(fit)); unclip(); };
+
+    // ---------------------------------------------------------------- 2. micro telemetry info
+    const STAT_INFO = {
+        'health': 'A score out of 100 for the selected period: how much of your income you keep, how long your cash would last, how much you owe on the card, and whether spending stays inside the budget. 80+ is strong, under 50 needs attention.',
+        'daily burn': 'Average money spent per day in the selected period (expenses ÷ days). Multiply by 30 for a rough month.',
+        'velocity': 'Savings rate: the share of income you kept in the selected period, (income − expenses) ÷ income. 20% or more is healthy.',
+        'liabilities': 'What you owe right now: the unpaid balance on your credit card plus recurring bills still due this month.',
+        'runway': 'How many days your liquid cash would last at your current daily burn if no more income arrived.',
+        'top expense': 'The category you spent the most on in the selected period, with the amount.'
+    };
+    function statInfo() {
+        document.querySelectorAll('#statsDeckContainer .stats-stack-card > p:first-child').forEach(p => {
+            if (p.querySelector('.info-icon')) return; const k = p.textContent.replace(/\s+/g, ' ').trim().toLowerCase(), t = STAT_INFO[k]; if (!t) return;
+            p.insertAdjacentHTML('beforeend', ' ' + INFO(t)); try { icons(); } catch (e) {}
+        });
+    }
+
+    // ---------------------------------------------------------------- 3. chart period bar
+    function periodBar() {
+        const deck = $('chartDeckContainer'); if (!deck) return; const macro = deck.closest('.mt-10') || deck.parentElement.parentElement; if (!macro) return;
+        let bar = $('cx19Period'); const ms = months().slice().reverse(), cur = typeof selectedMonth !== 'undefined' ? selectedMonth : 'all', now = mKey(Date.now()), last = mKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime());
+        const html = `<span class="lbl">Period ${INFO('Changes every chart in this deck and the dashboard figures that follow the page filter (the ALL TIME box at the top). Period Cashflow has its own picker.')}</span>
+            <button class="${cur === now ? 'on' : ''}" data-m="${now}">This month</button><button class="${cur === last ? 'on' : ''}" data-m="${last}">Last month</button><button class="${cur === 'all' ? 'on' : ''}" data-m="all">All time</button>
+            <select aria-label="Pick a month"><option value="">Pick a month…</option>${ms.map(m => `<option value="${m}" ${m === cur ? 'selected' : ''}>${MNL(m)}</option>`).join('')}</select>
+            <span class="now">${cur === 'all' ? 'Showing all time' : 'Showing ' + MNL(cur)}</span>`;
+        if (!bar) { const hd = macro.querySelector('.flex.justify-between'); (hd || macro.firstElementChild).insertAdjacentHTML('afterend', `<div id="cx19Period"></div>`); bar = $('cx19Period');
+            bar.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); if (b) applyUniversalFilter(b.dataset.m); });
+            bar.addEventListener('change', e => { if (e.target.tagName === 'SELECT' && e.target.value) applyUniversalFilter(e.target.value); }); }
+        if (bar.dataset.h !== html) { bar.innerHTML = html; bar.dataset.h = html; try { icons(); } catch (e) {} }
+    }
+
+    // ---------------------------------------------------------------- 4-5. deck: retire look-alikes, add new charts, rebuild Month Race
+    const RETIRE = ['Savings Velocity', 'Distribution', 'Balance Curve'];
+    const NEWC = [
+        ['cx19Run', 'Cash Runway Forecast', '#22d3ee', 'Where your cash is heading over the next 90 days: today\'s balance, minus your usual daily spending, plus your usual monthly income on the day it normally arrives. The red marker is the day it would run out.'],
+        ['cx19Plan', 'Plan vs Actual', '#c084fc', 'The selected month\'s spending against the 50/25/20/5 plan from the Allocation Matrix. The outlined bar is what the plan allows from that month\'s income; the solid bar is what you spent (red when over).'],
+        ['cx19Fix', 'Fixed vs Variable', '#fb923c', 'Money that goes out every month anyway (entries ticked as recurring, plus rent, bills and subscriptions) against everyday spending you control.']
+    ];
+    const ch = {};
+    function draw(id, cfg) { const c = $(id); if (!c || !window.Chart) return; try { if (ch[id]) ch[id].destroy(); ch[id] = new Chart(c, cfg); } catch (e) { console.warn('v19 chart', id, e); } }
+    const AX = (extra) => Object.assign({ responsive: true, maintainAspectRatio: false, animation: document.documentElement.classList.contains('cx18-smooth') ? false : { duration: 300 }, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 9, boxHeight: 9, font: { size: 10.5 } } }, tooltip: { backgroundColor: 'rgba(4,10,20,.95)', borderColor: 'rgba(0,229,255,.35)', borderWidth: 1, callbacks: { label: c => ` ${c.dataset.label}: ${c.raw == null ? '—' : rs(c.raw)}` } } },
+        scales: { x: { grid: { color: 'rgba(0,229,255,.06)' }, ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } } } }, extra || {});
+    function deckSetup() {
+        const deck = $('chartDeckContainer'); if (!deck) return;
+        let hold = $('cx19Hold'); if (!hold) { document.body.insertAdjacentHTML('beforeend', '<div id="cx19Hold" hidden></div>'); hold = $('cx19Hold'); }
+        let changed = false;
+        deck.querySelectorAll('.chart-stack-card').forEach(c => { const h = c.querySelector('h3'), t = h ? h.childNodes[0].textContent.trim() : ''; if (RETIRE.some(r => t.toLowerCase() === r.toLowerCase())) { c.classList.remove('chart-stack-card', 'active', 'prev-card', 'next-card'); c.classList.add('cx19-retired'); hold.appendChild(c); changed = true; } });
+        if (!$('cx19Run')) { deck.insertAdjacentHTML('beforeend', NEWC.map(n => `<div class="chart-stack-card glass-panel p-5 md:p-6 flex flex-col border-t-2" style="border-top-color:${n[2]}"><div class="flex justify-between items-center mb-3 gap-2"><h3 class="text-xs font-bold uppercase tracking-widest flex items-center" style="color:${n[2]}">${n[1]} ${INFO(n[3])}</h3><span class="cx19-sub" id="${n[0]}S"></span></div><div class="relative flex-grow" style="min-height:220px"><canvas id="${n[0]}"></canvas></div></div>`).join('')); changed = true; }
+        // Month Race: own controls and canvas
+        const race = $('cxmRace'); if (race && !$('cx19Race')) {
+            const card = race.closest('.chart-stack-card'), box = race.parentElement; race.style.display = 'none';
+            box.insertAdjacentHTML('beforeend', '<canvas id="cx19Race"></canvas>');
+            const hd = card.querySelector('.flex.justify-between'); if (hd) hd.insertAdjacentHTML('beforeend', `<div class="cx19-ctl" id="cx19RaceCtl"></div>`);
+            const h3 = card.querySelector('h3 .info-icon'); if (h3) h3.setAttribute('data-info', 'Money spent so far, day by day, in two months you choose. The dashed red line is an even pace towards your budget, the dotted line the budget itself. Change the budget with the button.');
+            changed = true;
+        }
+        if (changed) { const nav = $('chartDeckContainerNav'); if (nav) nav.innerHTML = ''; try { const n = deck.querySelectorAll('.chart-stack-card').length; if (currentChartIdx >= n) currentChartIdx = 0; updateChartStack(); } catch (e) {} try { icons(); } catch (e) {} }
+    }
+    let raceA = null, raceB = null;
+    function raceCtl() {
+        const box = $('cx19RaceCtl'); if (!box) return; const ms = months().slice().reverse(), sel = typeof selectedMonth !== 'undefined' && selectedMonth !== 'all' ? selectedMonth : mKey(Date.now());
+        const a = raceA || sel, prevOf = k => { const [y, m] = k.split('-').map(Number); return mKey(new Date(y, m - 2, 1).getTime()); }, b = raceB || prevOf(a);
+        const opt = v => ms.concat(ms.includes(v) ? [] : [v]).map(m => `<option value="${m}" ${m === v ? 'selected' : ''}>${MN(m)}</option>`).join('');
+        const h = `<select data-r="a" aria-label="Month">${opt(a)}</select><span>vs</span><select data-r="b" aria-label="Compared with">${opt(b)}</select><button type="button" onclick="CX18 && CX18.budget()">Budget ${short(budgetOf(a))} ✎</button>`;
+        if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; box.onchange = e => { const s = e.target; if (s.dataset.r === 'a') raceA = s.value; else raceB = s.value; paintCharts(true); }; }
+        return [a, b];
+    }
+    function cum(k) { const [y, m] = k.split('-').map(Number), n = new Date(y, m, 0).getDate(), d = new Array(n).fill(0); real().filter(t => t.type === 'expense' && mKey(t.timestamp) === k).forEach(t => { d[new Date(t.timestamp).getDate() - 1] += t.amount; }); let s = 0; return d.map(v => (s += v)); }
+    function drawRace() {
+        const ab = raceCtl(); if (!ab || !$('cx19Race')) return; const [a, b] = ab, A = cum(a), Bc = cum(b), n = Math.max(A.length, Bc.length), now = new Date(), isNow = a === mKey(now.getTime()), bud = budgetOf(a);
+        const aData = A.map((v, i) => isNow && i >= now.getDate() ? null : Math.round(v));
+        draw('cx19Race', { type: 'line', data: { labels: [...Array(n)].map((_, i) => i + 1), datasets: [
+            { label: MN(a), data: aData, borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,.12)', fill: true, tension: .2, pointRadius: 0, borderWidth: 2.6 },
+            { label: MN(b), data: Bc.map(Math.round), borderColor: '#a855f7', borderWidth: 1.8, pointRadius: 0, tension: .2 },
+            { label: 'Even pace to budget', data: [...Array(n)].map((_, i) => Math.round(bud * (i + 1) / A.length)), borderColor: '#f87171', borderDash: [6, 5], borderWidth: 1.6, pointRadius: 0 },
+            { label: 'Budget', data: [...Array(n)].map(() => bud), borderColor: 'rgba(248,113,113,.55)', borderDash: [2, 4], borderWidth: 1.2, pointRadius: 0 }] },
+            options: AX({ scales: { x: { grid: { color: 'rgba(0,229,255,.05)' }, ticks: { color: '#64748b', font: { size: 10 }, autoSkip: true, maxTicksLimit: 16 } }, y: { beginAtZero: true, suggestedMax: bud * 1.1, grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } } } }) });
+    }
+    function drawRunway() {
+        const tx = real(), bal = tx.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0), d60 = Date.now() - 60 * 864e5;
+        const first = tx.length ? Math.min(...tx.map(t => t.timestamp)) : Date.now(), span = Math.max(1, Math.min(60, (Date.now() - Math.max(first, d60)) / 864e5));
+        const burn = tx.filter(t => t.type === 'expense' && t.timestamp >= d60).reduce((s, t) => s + t.amount, 0) / span;
+        const incs = tx.filter(t => t.type === 'income' && t.timestamp >= Date.now() - 120 * 864e5), mInc = incs.reduce((s, t) => s + t.amount, 0) / 4, days = incs.map(t => new Date(t.timestamp).getDate()).sort((x, y) => x - y), payDay = days.length ? days[Math.floor(days.length / 2)] : 1;
+        const labels = [], pts = []; let v = bal, out = null;
+        for (let i = 0; i <= 90; i++) { const d = new Date(); d.setDate(d.getDate() + i); if (i > 0) { v -= burn; if (d.getDate() === payDay && mInc > 0) v += mInc; } labels.push(d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })); pts.push(Math.round(v)); if (out === null && v < 0) out = i; }
+        const s = $('cx19RunS'); if (s) s.textContent = out === null ? `${short(burn)}/day • safe for 90+ days` : `${short(burn)}/day • runs out in ${out} days`;
+        draw('cx19Run', { type: 'line', data: { labels, datasets: [{ label: 'Projected cash', data: pts, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,.1)', fill: true, tension: .15, pointRadius: pts.map((_, i) => i === out ? 5 : 0), pointBackgroundColor: '#f87171', borderWidth: 2.4 },
+            { label: 'Zero', data: pts.map(() => 0), borderColor: 'rgba(248,113,113,.6)', borderDash: [4, 4], borderWidth: 1, pointRadius: 0 }] }, options: AX({ scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 9 } }, y: { grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } } } }) });
+    }
+    function drawPlan() {
+        const cats = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+        const N = cats('allocNeedsCats') || ['Groceries', 'Transport', 'Utilities', 'Electricity charges', 'Mobile Recharge', 'Rent', 'Education', 'Health'], W = cats('allocWantsCats') || ['Food & Dining', 'Travel', 'Shopping', 'Entertainment', 'Subscriptions'], WL = cats('allocWealthCats') || ['Investments'];
+        const B = [['Needs', .5, '#0ea5e9', c => N.includes(c)], ['Wants', .25, '#a855f7', c => W.includes(c)], ['Wealth', .2, '#10b981', c => WL.includes(c)], ['Carefree', .05, '#ef4444', c => !N.includes(c) && !W.includes(c) && !WL.includes(c)]];
+        const per = typeof selectedMonth !== 'undefined' && selectedMonth !== 'all' ? selectedMonth : mKey(Date.now()), tx = real().filter(t => mKey(t.timestamp) === per), inc = tx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const plan = B.map(b => Math.round(inc * b[1])), act = B.map(b => Math.round(tx.filter(t => t.type === 'expense' && b[3](t.category)).reduce((s, t) => s + t.amount, 0)));
+        const over = B.filter((_, i) => plan[i] > 0 && act[i] > plan[i]).map(b => b[0]), s = $('cx19PlanS'); if (s) s.textContent = MN(per) + ' • ' + (!inc ? 'add income to set the plan' : over.length ? 'over plan: ' + over.join(', ') : 'all inside plan');
+        draw('cx19Plan', { type: 'bar', data: { labels: B.map((b, i) => `${b[0]} ${Math.round(b[1] * 100)}%`), datasets: [
+            { label: 'Plan', data: plan, backgroundColor: B.map(b => b[2] + '22'), borderColor: B.map(b => b[2]), borderWidth: 1.5, borderDash: [4, 3], borderRadius: 4, grouped: false, barPercentage: .85, categoryPercentage: .9, order: 2 },
+            { label: 'Spent', data: act, backgroundColor: B.map((b, i) => plan[i] && act[i] > plan[i] ? '#f87171' : b[2]), borderRadius: 4, grouped: false, barPercentage: .45, categoryPercentage: .9, order: 1 }] },
+            options: AX({ indexAxis: 'y', interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(4,10,20,.95)', callbacks: { label: c => ` ${c.dataset.label}: ${rs(c.raw)}`, afterBody: it => { const i = it[0].dataIndex; return plan[i] ? `${Math.round(act[i] / plan[i] * 100)}% of plan used` : ''; } } } },
+                scales: { x: { beginAtZero: true, grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } }, y: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { size: 11, weight: '600' } } } } }) });
+    }
+    function drawFixed() {
+        const FIXED = /rent|bill|utilit|electric|mobile|recharge|subscri|emi|loan|insurance|internet|wifi|broadband|fees|education/i, L = months().slice(-6);
+        const rows = L.map(k => { const ex = real().filter(t => t.type === 'expense' && mKey(t.timestamp) === k); const f = ex.filter(t => t.isRecurring || FIXED.test(t.category || '') || FIXED.test(t.note || '')).reduce((s, t) => s + t.amount, 0), all = ex.reduce((s, t) => s + t.amount, 0); return { f, v: all - f }; });
+        const last = rows[rows.length - 1] || { f: 0, v: 0 }, s = $('cx19FixS'); if (s) s.textContent = last.f + last.v ? `${Math.round(last.f / (last.f + last.v) * 100)}% fixed this month` : '';
+        draw('cx19Fix', { type: 'bar', data: { labels: L.map(MN), datasets: [{ label: 'Fixed (comes every month)', data: rows.map(r => Math.round(r.f)), backgroundColor: '#fb923c', borderRadius: 3, stack: 's' }, { label: 'Variable (you decide)', data: rows.map(r => Math.round(r.v)), backgroundColor: '#38bdf8aa', borderRadius: 3, stack: 's' }] }, options: AX({ scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } }, y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } } } }) });
+    }
+    let csig = '';
+    function paintCharts(force) {
+        if (!$('cx19Run')) return; const sig = JSON.stringify([transactions.length, real().reduce((s, t) => s + t.amount, 0), typeof selectedMonth !== 'undefined' ? selectedMonth : '', raceA, raceB, localStorage.getItem('walletBudgets'), document.documentElement.classList.contains('cx18-smooth')]);
+        if (!force && sig === csig) return; csig = sig; safe(drawRace); safe(drawRunway); safe(drawPlan); safe(drawFixed);
+    }
+
+    // ---------------------------------------------------------------- 6. all-time view
+    let allRange = 'all', allQ = '';
+    function openAll() {
+        const old = $('cx19All'); if (old) old.remove();
+        document.body.insertAdjacentHTML('beforeend', `<div class="cx-modal" id="cx19All"><div style="width:min(1100px,100%);max-height:92vh;display:flex;flex-direction:column"><h3><span>All-time line</span><button class="cx-btn red sm" onclick="document.getElementById('cx19All').remove()">Close</button></h3>
+            <div class="cx19-rng" id="cx19Rng"></div>
+            <div class="cx19-scroll" id="cx19Scroll"><div id="cx19AllW" style="height:260px;position:relative"><canvas id="cx19AllC"></canvas></div></div>
+            <div class="cx19-hint">Scroll sideways along the chart • tap a day to jump to its entries</div>
+            <div style="display:flex;gap:8px;align-items:center;margin:10px 0 6px"><input id="cx19AllQ" class="cx-in" style="flex:1" placeholder="Search entries: note, category, amount…" value="${esc(allQ)}"><span id="cx19AllN" class="cx19-hint" style="margin:0"></span></div>
+            <div class="cx19-list" id="cx19AllL"></div></div></div>`);
+        $('cx19Rng').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; allRange = b.dataset.r; paintAll(); });
+        $('cx19AllQ').addEventListener('input', e => { allQ = e.target.value; paintList(); });
+        $('cx19All').addEventListener('mousedown', e => { if (e.target.id === 'cx19All') $('cx19All').remove(); });
+        paintAll();
+    }
+    function rangeTx() {
+        const now = Date.now(), lim = { all: 0, year: new Date(new Date().getFullYear(), 0, 1).getTime(), '90': now - 90 * 864e5, '30': now - 30 * 864e5 }[allRange];
+        return real().filter(t => allRange.length === 7 ? mKey(t.timestamp) === allRange : t.timestamp >= (lim || 0));
+    }
+    function paintAll() {
+        const ms = months().slice().reverse();
+        $('cx19Rng').innerHTML = [['all', 'All time'], ['year', 'This year'], ['90', 'Last 90 days'], ['30', 'Last 30 days']].map(([k, n]) => `<button class="${allRange === k ? 'on' : ''}" data-r="${k}">${n}</button>`).join('') + ms.map(m => `<button class="${allRange === m ? 'on' : ''}" data-r="${m}">${MN(m)}</button>`).join('');
+        const tx = rangeTx().sort((a, b) => a.timestamp - b.timestamp);
+        const start = tx.length ? new Date(tx[0].timestamp) : new Date(); start.setHours(0, 0, 0, 0); const end = allRange.length === 7 ? (() => { const [y, m] = allRange.split('-').map(Number); return Math.min(Date.now(), new Date(y, m, 0, 23, 59).getTime()); })() : Date.now();
+        const days = []; for (let d = new Date(start); d.getTime() <= end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+        const key = d => d.toLocaleDateString('en-CA'), map = {}; days.forEach(d => { map[key(d)] = { i: 0, e: 0 }; }); tx.forEach(t => { const k = key(new Date(t.timestamp)); if (map[k]) map[k][t.type === 'income' ? 'i' : 'e'] += t.amount; });
+        let run = real().filter(t => t.timestamp < start.getTime()).reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0); const bal = days.map(d => { const m = map[key(d)]; run += m.i - m.e; return Math.round(run); });
+        const w = $('cx19AllW'), sc = $('cx19Scroll'); w.style.width = Math.max(sc.clientWidth - 4, days.length * 18) + 'px';
+        draw('cx19AllC', { data: { labels: days.map(d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })), datasets: [
+            { type: 'bar', label: 'Income', data: days.map(d => Math.round(map[key(d)].i)), backgroundColor: '#10b981', borderRadius: 2, yAxisID: 'y', maxBarThickness: 12 },
+            { type: 'bar', label: 'Expense', data: days.map(d => Math.round(map[key(d)].e)), backgroundColor: '#ef4444', borderRadius: 2, yAxisID: 'y', maxBarThickness: 12 },
+            { type: 'line', label: 'Balance', data: bal, borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, tension: .2, yAxisID: 'y2' }] },
+            options: AX({ onClick: (e, els) => { if (!els.length) return; const d = days[els[0].index]; const row = document.querySelector(`#cx19AllL [data-d="${key(d)}"]`); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+                scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 }, autoSkip: true, maxRotation: 0 } }, y: { beginAtZero: true, grid: { color: 'rgba(0,229,255,.07)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => short(v) } }, y2: { position: 'right', grid: { display: false }, ticks: { color: '#00e5ff', font: { size: 10 }, callback: v => short(v) } } } }) });
+        setTimeout(() => { sc.scrollLeft = sc.scrollWidth; }, 50);
+        paintList();
+    }
+    function paintList() {
+        const q = allQ.trim().toLowerCase(), tx = rangeTx().filter(t => !q || [t.note, t.category, t.account, String(t.amount)].join(' ').toLowerCase().includes(q)).sort((a, b) => b.timestamp - a.timestamp);
+        const n = $('cx19AllN'); if (n) n.textContent = `${tx.length} entr${tx.length === 1 ? 'y' : 'ies'}`;
+        const by = {}; tx.forEach(t => { (by[mKey(t.timestamp)] = by[mKey(t.timestamp)] || []).push(t); });
+        let lastD = ''; $('cx19AllL').innerHTML = Object.keys(by).sort().reverse().map(k => { const l = by[k], inc = l.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), ex = l.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+            return `<div class="mh"><b>${MNL(k)}</b><span><em style="color:#10b981">+${rs(inc)}</em> <em style="color:#ef4444">−${rs(ex)}</em> <em>net ${rs(inc - ex)}</em></span></div>` + l.map(t => { const d = new Date(t.timestamp).toLocaleDateString('en-CA'), mark = d !== lastD ? ` data-d="${d}"` : ''; lastD = d; return `<div class="row"${mark}><span class="d">${new Date(t.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span><span class="n">${esc(t.note || t.category)}<small>${esc(t.category)} • ${esc(t.account)}</small></span><b style="color:${t.type === 'income' ? '#10b981' : '#f87171'}">${t.type === 'income' ? '+' : '−'}${rs(t.amount)}</b></div>`; }).join(''); }).join('') || '<p class="cx19-hint">No entries in this range.</p>';
+    }
+    window.openAllTimeChart = openAll;
+
+    // ---------------------------------------------------------------- 7. Period Cashflow with its own month
+    function cashflow() {
+        const inc = $('currMonthIncome'), exp = $('currMonthExpense'), net = $('currMonthNet'); if (!inc || !exp || !net) return;
+        const card = inc.closest('.glass-panel'), h = card && card.querySelector('h3'); if (!h) return;
+        let sel = $('cx19Cf'); const ms = months().slice().reverse(), v = getJ('cxCashflowSel', mKey(Date.now()));
+        if (!sel) { h.insertAdjacentHTML('afterend', `<select id="cx19Cf" class="cx19-cf" aria-label="Period for this card" title="This card's own period (separate from the page filter)"></select>`); sel = $('cx19Cf'); sel.onchange = () => { setJ('cxCashflowSel', sel.value); cashflow(); }; }
+        const opts = `<option value="page">Follow page filter</option><option value="all">All time</option>` + ms.map(m => `<option value="${m}">${MNL(m)}</option>`).join('');
+        if (sel.dataset.o !== opts) { sel.innerHTML = opts; sel.dataset.o = opts; } if (sel.value !== v) sel.value = v;
+        if (v === 'page') return;                                                   // the original figures stay
+        const tx = real().filter(t => v === 'all' || mKey(t.timestamp) === v), I = tx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), E = tx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), N = I - E;
+        const f = n => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const set = (el, t) => { if (el.textContent !== t) { el.textContent = t; el.dataset.fit = ''; } };
+        set(inc, f(I)); set(exp, f(E)); set(net, `NET: ${N >= 0 ? '+' : '−'} ${f(Math.abs(N))} ${N >= 0 ? 'SAVED' : 'OVERSPENT'} • ${v === 'all' ? 'ALL TIME' : MN(v).toUpperCase()}`);
+    }
+
+    // ---------------------------------------------------------------- 8. chat window
+    let unread = 0;
+    function chat() {
+        const win = $('casperChatWindow'); if (!win) return; const fab = win.parentElement && [...win.parentElement.children].find(c => c.tagName === 'BUTTON');
+        if (fab && !fab.id) fab.id = 'cx19Fab';
+        const hdr = win.firstElementChild; if (hdr && !$('cx19Min')) {
+            const close = hdr.querySelector('button'); close.insertAdjacentHTML('beforebegin', `<button id="cx19Min" title="Minimise" aria-label="Minimise" type="button">—</button><button id="cx19Max" title="Maximise" aria-label="Maximise" type="button">⤢</button>`);
+            const wrap = document.createElement('div'); wrap.className = 'cx19-wbtn'; close.parentElement.insertBefore(wrap, $('cx19Min')); wrap.append($('cx19Min'), $('cx19Max'), close);
+            $('cx19Min').onclick = e => { e.stopPropagation(); win.classList.toggle('cx19-min'); win.classList.remove('cx19-max'); setJ('cxChatSize', win.classList.contains('cx19-min') ? 'min' : 'normal'); };
+            $('cx19Max').onclick = e => { e.stopPropagation(); win.classList.toggle('cx19-max'); win.classList.remove('cx19-min'); setJ('cxChatSize', win.classList.contains('cx19-max') ? 'max' : 'normal'); const b = $('casperChatBody'); if (b) b.scrollTop = b.scrollHeight; };
+            hdr.addEventListener('dblclick', () => $('cx19Max').click());
+            hdr.addEventListener('click', e => { if (win.classList.contains('cx19-min') && !e.target.closest('button')) { win.classList.remove('cx19-min'); setJ('cxChatSize', 'normal'); } });
+            const sz = getJ('cxChatSize', 'normal'); if (sz === 'max') win.classList.add('cx19-max');
+        }
+        const body = $('casperChatBody'); if (body && !body.dataset.cx19) {
+            body.dataset.cx19 = '1';
+            new MutationObserver(ms => { ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType !== 1 || /loader_/.test(n.id || '') || n.classList.contains('ml-auto') || /animate-spin|loader/.test(n.innerHTML.slice(0, 200))) return; const away = win.classList.contains('hidden') || win.classList.contains('cx19-min') || document.hidden; if (away) { unread++; dot(); try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('C.A.S.P.E.R. replied', { body: (n.textContent || '').slice(0, 120), tag: 'casper-reply' }); } catch (e) {} } })); }).observe(body, { childList: true });
+        }
+        if (fab && !fab.dataset.cx19) { fab.dataset.cx19 = '1'; fab.style.position = 'relative'; fab.insertAdjacentHTML('beforeend', '<em id="cx19Dot" hidden></em>'); fab.addEventListener('click', () => { setTimeout(() => { if (!win.classList.contains('hidden')) { unread = 0; dot(); win.classList.remove('cx19-min'); } }, 30); }); }
+    }
+    function dot() { const d = $('cx19Dot'); if (!d) return; d.hidden = !unread; d.textContent = unread > 9 ? '9+' : unread || ''; const f = $('cx19Fab'); if (f) f.classList.toggle('cx19-ping', !!unread); }
+    const togPrev = window.toggleCasper; if (typeof togPrev === 'function') window.toggleCasper = function () { const r = togPrev.apply(this, arguments); const w = $('casperChatWindow'); if (w && !w.classList.contains('hidden')) { unread = 0; dot(); } return r; };
+
+    // ---------------------------------------------------------------- 9. reactor + blueprint
+    const CORE = `<svg class="cx19core" viewBox="-100 -100 200 200" aria-hidden="true"><defs>
+        <radialGradient id="cx19g" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(46)"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#bff8ff"/><stop offset=".7" stop-color="#22d3ee" stop-opacity=".55"/><stop offset="1" stop-color="#0891b2" stop-opacity="0"/></radialGradient>
+        <filter id="cx19b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <g class="tick" stroke="#38bdf8" stroke-opacity=".55">${[...Array(72)].map((_, i) => { const a = i * 5 * Math.PI / 180, r1 = 96, r2 = i % 6 ? 92 : 87; return `<line x1="${(Math.cos(a) * r1).toFixed(1)}" y1="${(Math.sin(a) * r1).toFixed(1)}" x2="${(Math.cos(a) * r2).toFixed(1)}" y2="${(Math.sin(a) * r2).toFixed(1)}" stroke-width="${i % 6 ? .6 : 1.2}"/>`; }).join('')}</g>
+        <circle r="84" fill="none" stroke="#0ea5e9" stroke-opacity=".5" stroke-width="1.2"/>
+        <g class="ca">${[...Array(10)].map((_, i) => `<g transform="rotate(${i * 36})"><rect x="-8" y="-80" width="16" height="22" rx="2.5" fill="#082f49" stroke="#22d3ee" stroke-width="1.1"/><line x1="-5" y1="-76" x2="5" y2="-76" stroke="#7dd3fc" stroke-width=".8"/><line x1="-5" y1="-72" x2="5" y2="-72" stroke="#7dd3fc" stroke-width=".8"/><line x1="-5" y1="-68" x2="5" y2="-68" stroke="#7dd3fc" stroke-width=".8"/><line x1="-5" y1="-64" x2="5" y2="-64" stroke="#7dd3fc" stroke-width=".8"/><circle cy="-86" r="1.6" fill="#0ea5e9"/></g>`).join('')}</g>
+        <circle class="cb" r="56" fill="none" stroke="#22d3ee" stroke-width="2.2" stroke-dasharray="14 6 3 6" stroke-opacity=".85"/>
+        <circle r="48" fill="none" stroke="#0e7490" stroke-width="5"/>
+        <circle r="46" fill="url(#cx19g)" class="glow"/>
+        <g filter="url(#cx19b)"><polygon points="-30,-17 30,-17 0,35" fill="none" stroke="#e0fbff" stroke-width="4.5" stroke-linejoin="round"/><polygon points="-16,-9 16,-9 0,19" fill="#ffffff" fill-opacity=".9"/></g>
+        <circle r="5" fill="#fff"/>
+    </svg>`;
+    function reactor() {
+        const core = $('cx10Core'); if (!core || core.querySelector('.cx19core')) return; core.insertAdjacentHTML('beforeend', CORE);
+        const st = $('cx10Stage'); if (st && !$('cx19Notes')) st.insertAdjacentHTML('beforeend', `<div id="cx19Notes" aria-hidden="true"><span class="a">ARC REACTOR // MK III</span><span class="b">Ø 190 · 10-COIL TOROID</span><span class="c">PALLADIUM-FREE CORE · 3 GJ/s</span></div>`);
+    }
+    function blueprint() {
+        if (!document.querySelector('link[data-cx19]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.cx19 = '1'; l.href = 'https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap'; document.head.appendChild(l); }
+        document.querySelectorAll('.cx18-sec').forEach((s, i) => { const hd = s.querySelector('.cx18-hd'); if (!hd || hd.querySelector('.cx19-tb')) return; hd.querySelector('.cx18-chev').insertAdjacentHTML('beforebegin', `<span class="cx19-tb"><i>DWG</i>WMK-${String(i + 1).padStart(2, '0')}<i>REV</i>21<i>SCALE</i>1:1</span>`); });
+    }
+
+    // ---------------------------------------------------------------- styles
+    const css = document.createElement('style');
+    css.textContent = `
+    .cx19-wrap { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; -webkit-line-clamp: unset !important; }
+    #cxmRace { display: none !important; } #cx19Race { width: 100% !important; }
+    /* fit */
+    #statsDeckContainer .stats-stack-card > p[id] { white-space: nowrap; overflow: hidden; text-overflow: clip; line-height: 1.1; }
+    #statsDeckContainer .stats-stack-card > p:first-child { flex-wrap: wrap; gap: 4px; }
+    #currMonthIncome, #currMonthExpense, #currMonthNet { text-overflow: clip !important; }
+    #viewDashboard .glass-panel p.truncate, #viewDashboard h3 + p.truncate { white-space: normal !important; overflow: visible !important; }
+    #viewDashboard .text-\\[10px\\].truncate { white-space: normal; }
+    /* period bar */
+    #cx19Period { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 8px 14px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(0,229,255,.18); background: rgba(0,0,0,.35); }
+    #cx19Period .lbl { font: 700 10px 'Oxanium', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; display: inline-flex; align-items: center; margin-right: 4px; }
+    #cx19Period button { padding: 6px 11px; border-radius: 9px; font: 700 10.5px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7dd3fc; border: 1px solid rgba(0,229,255,.25); } #cx19Period button.on { background: #00e5ff; color: #001018; border-color: #00e5ff; }
+    #cx19Period select, .cx19-ctl select, .cx19-cf { background: #030a14; color: #e2e8f0; border: 1px solid rgba(0,229,255,.3); border-radius: 9px; padding: 5px 8px; font: 600 11.5px 'Oxanium', sans-serif; color-scheme: dark; outline: none; }
+    #cx19Period .now { margin-left: auto; font-size: 11.5px; color: #64748b; }
+    .cx19-ctl { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; } .cx19-ctl span { font-size: 11px; color: #64748b; } .cx19-ctl button { padding: 5px 9px; border-radius: 9px; font: 700 10px 'Oxanium', sans-serif; letter-spacing: .08em; color: #f87171; border: 1px solid rgba(248,113,113,.4); white-space: nowrap; }
+    .cx19-sub { font: 600 10.5px 'Oxanium', sans-serif; letter-spacing: .06em; color: #94a3b8; text-align: right; }
+    .cx19-cf { margin-left: 8px; max-width: 150px; font-size: 10.5px !important; }
+    /* all-time */
+    .cx19-rng { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; scrollbar-width: thin; } .cx19-rng button { flex: 0 0 auto; padding: 6px 11px; border-radius: 9px; font: 700 10.5px 'Oxanium', sans-serif; letter-spacing: .08em; color: #7dd3fc; border: 1px solid rgba(0,229,255,.25); } .cx19-rng button.on { background: #00e5ff; color: #001018; }
+    .cx19-scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid rgba(0,229,255,.15); border-radius: 12px; background: rgba(0,0,0,.35); padding: 8px 2px 4px; scrollbar-width: thin; }
+    .cx19-hint { font-size: 11px; color: #64748b; margin-top: 6px; }
+    .cx19-list { overflow-y: auto; flex: 1; min-height: 160px; max-height: 40vh; border-top: 1px solid rgba(255,255,255,.06); padding-right: 4px; scrollbar-width: thin; }
+    .cx19-list .mh { position: sticky; top: 0; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 9px 4px 7px; background: #07101c; border-bottom: 1px solid rgba(0,229,255,.2); font: 700 11px 'Oxanium', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #00e5ff; z-index: 1; } .cx19-list .mh em { font-style: normal; margin-left: 8px; color: #94a3b8; }
+    .cx19-list .row { display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; align-items: center; padding: 7px 4px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 12.5px; } .cx19-list .d { font: 600 11px 'Share Tech Mono', monospace; color: #64748b; } .cx19-list .n { min-width: 0; color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cx19-list .n small { display: block; color: #64748b; font-size: 11px; } .cx19-list b { font: 700 12.5px 'Oxanium', sans-serif; white-space: nowrap; }
+    /* chat */
+    .cx19-wbtn { display: flex; align-items: center; gap: 10px; } .cx19-wbtn button { color: #94a3b8; font-size: 14px; line-height: 1; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; } .cx19-wbtn button:hover { color: #fff; background: rgba(0,229,255,.15); }
+    #casperChatWindow { transition: width .25s ease, height .25s ease !important; }
+    #casperChatWindow.cx19-min { height: 56px !important; } #casperChatWindow.cx19-min > :not(:first-child) { display: none !important; } #casperChatWindow.cx19-min > :first-child { cursor: pointer; border-bottom: 0 !important; }
+    #casperChatWindow.cx19-max { width: min(860px, calc(100vw - 32px)) !important; height: min(82vh, calc(100vh - 120px)) !important; } #casperChatWindow.cx19-max #casperChatBody { font-size: 13.5px; } #casperChatWindow.cx19-max #casperChatBody > div { max-width: 78%; }
+    #cx19Dot { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: #ef4444; color: #fff; font: 800 10.5px 'Oxanium', sans-serif; font-style: normal; display: grid; place-items: center; box-shadow: 0 0 0 2px #000, 0 0 12px #ef4444; } #cx19Dot[hidden] { display: none; }
+    .cx19-ping { animation: cx19Ping 1.6s ease-in-out infinite; } @keyframes cx19Ping { 0%,100% { box-shadow: 0 0 25px rgba(0,229,255,.6); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,.35), 0 0 30px rgba(239,68,68,.6); } }
+    @media (max-width: 640px) { #casperChatWindow.cx19-max { width: calc(100vw - 16px) !important; height: calc(100vh - 150px) !important; } }
+    /* reactor */
+    #cx10Core > i { opacity: 0 !important; } #cx10Core .tri::before { display: none !important; }
+    .cx19core { position: absolute; inset: -6%; width: 112%; height: 112%; overflow: visible; filter: drop-shadow(0 0 12px rgba(34,211,238,.55)); }
+    .cx19core .ca { transform-origin: 0 0; animation: cx19Spin 40s linear infinite; } .cx19core .cb { transform-origin: 0 0; animation: cx19Spin 12s linear infinite reverse; } .cx19core .tick { transform-origin: 0 0; animation: cx19Spin 90s linear infinite; } .cx19core .glow { animation: cx19Beat 2.8s ease-in-out infinite; transform-origin: 0 0; }
+    @keyframes cx19Spin { to { transform: rotate(360deg); } } @keyframes cx19Beat { 0%,100% { opacity: .78; transform: scale(.97); } 50% { opacity: 1; transform: scale(1.04); } }
+    #cx19Notes span { position: absolute; font: 11px 'Share Tech Mono', monospace; letter-spacing: .12em; color: rgba(125,211,252,.55); white-space: nowrap; pointer-events: none; transform: translateZ(20px); }
+    #cx19Notes .a { left: 50%; top: 10px; transform: translateX(-50%); color: rgba(125,211,252,.8); } #cx19Notes .b { left: calc(50% + 104px); top: calc(50% - 70px); } #cx19Notes .c { left: calc(50% + 104px); top: calc(50% + 64px); } #cx19Notes .d { right: 14px; bottom: 26px; font-size: 10px; }
+    #cx19Notes .b::before, #cx19Notes .c::before { content: ''; position: absolute; right: 100%; top: 50%; width: 40px; height: 1px; background: rgba(125,211,252,.45); margin-right: 6px; }
+    @media (max-width: 760px) { #cx19Notes { display: none; } }
+    .cx18-smooth .cx19core * { animation: none !important; }
+    /* blueprint theme */
+    body { background-color: #030b16 !important; background-image: linear-gradient(rgba(56,189,248,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.055) 1px, transparent 1px), linear-gradient(rgba(56,189,248,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.025) 1px, transparent 1px) !important; background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px !important; }
+    .glass-panel { background-image: linear-gradient(rgba(56,189,248,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.035) 1px, transparent 1px); background-size: 20px 20px; }
+    .cx18-hd { border-bottom: 1px solid color-mix(in srgb, var(--sc) 30%, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--sc) 6%, transparent), transparent 60%); border-radius: 10px 10px 0 0; position: relative; }
+    .cx18-hd::before { content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 3px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--sc) 45%, transparent) 0 1px, transparent 1px 12px); opacity: .7; }
+    .cx19-tb { display: inline-flex; align-items: stretch; font: 11px 'Share Tech Mono', monospace; color: color-mix(in srgb, var(--sc) 85%, #fff); border: 1px solid color-mix(in srgb, var(--sc) 40%, transparent); border-radius: 4px; overflow: hidden; white-space: nowrap; }
+    .cx19-tb i { font-style: normal; padding: 3px 6px; background: color-mix(in srgb, var(--sc) 14%, transparent); color: #64748b; border-left: 1px solid color-mix(in srgb, var(--sc) 30%, transparent); } .cx19-tb i:first-child { border-left: 0; } .cx19-tb { gap: 0; } .cx19-tb > i + * { padding: 3px 6px; }
+    .cx19-tb { padding-right: 6px; } .cx19-tb i { margin-right: 6px; }
+    .cx18-n { font-family: 'Share Tech Mono', monospace !important; }
+    .chart-stack-card canvas { background-image: radial-gradient(rgba(56,189,248,.08) 1px, transparent 1px); background-size: 16px 16px; }
+    @media (max-width: 760px) { .cx19-tb { display: none; } #cx19Period .now { display: none; } }
+    `;
+    document.head.appendChild(css);
+
+    window.CX19 = { openAll, paintCharts, fitAll };
+    const tick = () => { safe(statInfo); safe(periodBar); safe(deckSetup); safe(() => paintCharts(false)); safe(cashflow); safe(chat); safe(reactor); safe(blueprint); safe(fitAll); };
+    const start = () => {
+        setTimeout(tick, 2300); setInterval(() => { if (!document.hidden) tick(); }, 2500);
+        const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); setTimeout(() => { safe(cashflow); safe(periodBar); safe(() => paintCharts(false)); safe(fitAll); }, 40); return r; };
+        ['updateStatsStack', 'updateChartStack'].forEach(n => { const o = window[n]; if (typeof o === 'function') window[n] = function () { const r = o.apply(this, arguments); setTimeout(() => safe(fitAll), 60); return r; }; });
+        addEventListener('resize', () => { document.querySelectorAll('[data-fit]').forEach(e => e.dataset.fit = ''); setTimeout(() => safe(fitAll), 120); });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
