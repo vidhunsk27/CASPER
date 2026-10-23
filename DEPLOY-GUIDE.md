@@ -293,3 +293,10 @@ Top of the Wishlist and Library pages.
 - **Period Cashflow** has its own month picker (independent of the page filter; "Follow page filter" restores the old behaviour).
 - **C.A.S.P.E.R. chat:** minimise (—), maximise (⤢ or double-click the title), and a red dot with a count on the chat button when an answer arrives while it is closed or minimised.
 - **Arc reactor** redrawn: 10-coil toroid, rotating rings, inverted triangle core. **Blueprint theme:** drafting grid, drawing title blocks on each section (DWG · REV · SCALE), engineering callouts.
+
+## Round 22 (mk3-r22)
+- Category Pie is back in the chart deck (it was the "Distribution" chart, retired by mistake in r21).
+- Blueprint title blocks (DWG / REV / SCALE) and rulers removed; calmer design with round section badges, gradient underlines, a quieter grid and hover states.
+- New boot screen: the arc reactor assembles while the app loads (once per tab session; tap to skip). The server puts it in the page itself so it appears on the very first frame.
+- Sign-in page and header/footer logos are now live arc reactors with the inverted triangle.
+- Check: `/api/health` shows `"version":"mk3-r22"`.

@@ -7360,7 +7360,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             const pings = []; for (let i = 0; i < 3; i++) { const r = await timed(() => fetch(API_BASE + '/health', { cache: 'no-store' }).then(x => x.json())); pings.push(r); if (r.ok) h = r.v; }
             const ok = pings.filter(p => p.ok), avg = ok.length ? Math.round(ok.reduce((a, p) => a + p.ms, 0) / ok.length) : 0;
             add('Server reachable', ok.length > 0, ok.length ? `${avg} ms average round trip${h && h.version ? ' • version ' + h.version : ''}` : 'No answer', ok.length ? (avg > 600 ? 'Slow. If your Render service is in the US, a new service in Singapore cuts this by more than half (see the guide).' : '') : 'The server may be waking up; wait a minute and run again.');
-            if (h) add('Server is up to date', h.version === 'mk3-r20', h.version || 'older file', h.version === 'mk3-r20' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
+            if (h) add('Server is up to date', h.version === 'mk3-r22', h.version || 'older file', h.version === 'mk3-r22' ? '' : 'Upload the newest server.js to GitHub and let Render redeploy.');
             if (h) add('Password gate', h.gate, h.gate ? 'Sign-in page on, asked again on every return' + (window.__cxLock ? '' : ' (window lock not active on this page!)') : 'Off: anyone with the link can open the site', h.gate ? '' : 'Set SITE_PASSWORD in Render.');
             const st = await timed(() => fetch(API_BASE + '/selftest', { cache: 'no-store' }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); }));
             add('Database write and read', st.ok && st.v.ok ? (st.v.store === 'firestore' ? true : null) : false, st.ok ? `${st.v.store === 'firestore' ? 'Firestore' : 'local file (wiped when Render restarts!)'} • ${st.v.dbMs} ms on the server${st.v.err ? ' • ' + st.v.err : ''}` : st.err, st.ok && st.v.store !== 'firestore' ? 'Set FIREBASE_SERVICE_ACCOUNT in Render so data is kept.' : '');
@@ -8060,7 +8060,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     if (!window.CX) return;
     const { $, esc, inr, getJ, setJ, toast, mKey, icons } = window.CX;
     const safe = fn => { try { return fn(); } catch (e) { console.warn('v18', e); } };
-    const APP_VERSION = 'mk3-r20';
+    const APP_VERSION = 'mk3-r22';
     window.__cxApp = APP_VERSION;
 
     // ---------------------------------------------------------------- 1. budget
@@ -8285,7 +8285,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
     }
 
     // ---------------------------------------------------------------- 4-5. deck: retire look-alikes, add new charts, rebuild Month Race
-    const RETIRE = ['Savings Velocity', 'Distribution', 'Balance Curve'];
+    const RETIRE = ['Savings Velocity', 'Balance Curve'];
     const NEWC = [
         ['cx19Run', 'Cash Runway Forecast', '#22d3ee', 'Where your cash is heading over the next 90 days: today\'s balance, minus your usual daily spending, plus your usual monthly income on the day it normally arrives. The red marker is the day it would run out.'],
         ['cx19Plan', 'Plan vs Actual', '#c084fc', 'The selected month\'s spending against the 50/25/20/5 plan from the Allocation Matrix. The outlined bar is what the plan allows from that month\'s income; the solid bar is what you spent (red when over).'],
@@ -8540,6 +8540,130 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
         const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); setTimeout(() => { safe(cashflow); safe(periodBar); safe(() => paintCharts(false)); safe(fitAll); }, 40); return r; };
         ['updateStatsStack', 'updateChartStack'].forEach(n => { const o = window[n]; if (typeof o === 'function') window[n] = function () { const r = o.apply(this, arguments); setTimeout(() => safe(fitAll), 60); return r; }; });
         addEventListener('resize', () => { document.querySelectorAll('[data-fit]').forEach(e => e.dataset.fit = ''); setTimeout(() => safe(fitAll), 120); });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+
+/* ============================================================================
+   WALLY MK 3 — ROUND 22 (appended; nothing above is changed)
+   1 the pie is back (Category Pie, a real pie with shares)
+   2 calmer, cleaner design: drawing labels and rulers gone, quieter grid, crisper cards
+   3 new boot screen: the arc reactor assembles itself, then the app opens
+   4 header and footer logos become a small live reactor
+   ============================================================================ */
+(function () {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const safe = fn => { try { return fn(); } catch (e) { console.warn('v20', e); } };
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ---------------------------------------------------------------- reactor drawing (shared)
+    let rid = 0;
+    function reactor(size, cls) {
+        const gid = 'cx20g' + (++rid);
+        const coils = [...Array(10)].map((_, i) => `<g class="co" style="--i:${i}" transform="rotate(${i * 36})"><rect x="-7" y="-78" width="14" height="20" rx="2.5"/><path d="M-4 -74h8M-4 -70h8M-4 -66h8M-4 -62h8"/></g>`).join('');
+        return `<svg class="cx20r ${cls || ''}" width="${size}" height="${size}" viewBox="-100 -100 200 200" aria-hidden="true">
+            <defs><radialGradient id="${gid}" r="1" cx="0" cy="0" gradientUnits="userSpaceOnUse" gradientTransform="scale(44)"><stop offset="0" stop-color="#fff"/><stop offset=".38" stop-color="#c9fbff"/><stop offset=".72" stop-color="#22d3ee" stop-opacity=".5"/><stop offset="1" stop-color="#0891b2" stop-opacity="0"/></radialGradient></defs>
+            <circle class="o1" r="92" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-opacity=".45"/>
+            <circle class="o2" r="84" fill="none" stroke="#22d3ee" stroke-width="2.4" stroke-dasharray="40 10 6 10" stroke-linecap="round"/>
+            <g class="cs" fill="#06243a" stroke="#22d3ee" stroke-width="1.2">${coils}</g>
+            <circle class="o3" r="54" fill="none" stroke="#67e8f9" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle r="46" fill="none" stroke="#0e7490" stroke-width="5"/>
+            <circle class="gl" r="44" fill="url(#${gid})"/>
+            <g class="tr"><polygon points="-28,-16 28,-16 0,33" fill="none" stroke="#ecfeff" stroke-width="4.5" stroke-linejoin="round"/><polygon points="-14,-8 14,-8 0,16" fill="#fff" fill-opacity=".92"/></g>
+            <circle class="ct" r="4.5" fill="#fff"/></svg>`;
+    }
+    window.CX20Reactor = reactor;
+
+    // ---------------------------------------------------------------- boot screen
+    function boot() {
+        let s = $('cx20Boot');                                                          // the server puts it in the page so it shows from the very first frame
+        if (!s) {
+            if (reduce) return; let seen = false; try { seen = !!sessionStorage.getItem('cxBoot'); sessionStorage.setItem('cxBoot', '1'); sessionStorage.setItem('cxSplash', '1'); } catch (e) {} if (seen) return;
+            s = document.createElement('div'); s.id = 'cx20Boot';
+        s.innerHTML = `<div class="bx">${reactor(188, 'boot')}<h1>WALLY <b>MK 3</b></h1><p class="sub">C.A.S.P.E.R. · Calculated Asset Security &amp; Personal Expense Recorder</p>
+            <ul><li style="--d:.25s"><span>Power core</span><em>online</em></li><li style="--d:.55s"><span>Ledger</span><em>loaded</em></li><li style="--d:.85s"><span>Secure link</span><em>verified</em></li><li style="--d:1.15s"><span>C.A.S.P.E.R.</span><em>ready</em></li></ul>
+            <div class="bar"><i></i></div></div>`;
+            const add = () => { document.body.appendChild(s); };
+            if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+        }
+        const t0 = +(s.dataset.t0 || Date.now()); let done = false;
+        const out = () => { if (done) return; done = true; s.classList.add('out'); setTimeout(() => s.remove(), 650); };
+        s.addEventListener('click', out);
+        const ready = () => setTimeout(out, Math.max(0, 1700 - (Date.now() - t0)));
+        if (document.readyState === 'complete') ready(); else addEventListener('load', ready);
+        setTimeout(out, 4500);                                                          // never stuck behind a slow network
+    }
+    boot();
+
+    // ---------------------------------------------------------------- logos
+    function logos() {
+        document.querySelectorAll('.cx-logo:not(.cx20r)').forEach(old => {
+            const size = +(old.getAttribute('width') || 44); old.outerHTML = reactor(size, 'mini cx-logo');
+        });
+    }
+
+    // ---------------------------------------------------------------- the pie
+    function pie() {
+        const c = $('walletChart'), card = c && c.closest('.chart-stack-card, .cx19-retired'); if (!card) return;
+        const h = card.querySelector('h3'); if (h && h.childNodes[0] && /Distribution/i.test(h.childNodes[0].textContent)) { h.childNodes[0].textContent = 'Category Pie '; const ic = h.querySelector('.info-icon'); if (ic) ic.setAttribute('data-info', 'Where your money went in the selected period, as slices of one pie. Hover or tap a slice for the amount and its share.'); const nav = $('chartDeckContainerNav'); if (nav) nav.innerHTML = ''; }
+        // bring it back into the deck if an earlier round retired it
+        if (card.classList.contains('cx19-retired')) { card.classList.remove('cx19-retired'); card.classList.add('chart-stack-card'); const deck = $('chartDeckContainer'), after = deck && [...deck.querySelectorAll('.chart-stack-card')].find(x => /Cumulative Wealth/i.test(x.textContent)); if (after) after.after(card); else if (deck) deck.appendChild(card); const nav = $('chartDeckContainerNav'); if (nav) nav.innerHTML = ''; try { updateChartStack(); } catch (e) {} }
+    }
+
+    // ---------------------------------------------------------------- styles
+    const css = document.createElement('style');
+    css.textContent = `
+    /* reactor drawing */
+    .cx20r { overflow: visible; display: block; filter: drop-shadow(0 0 10px rgba(34,211,238,.55)); }
+    .cx20r .cs path { fill: none; stroke: #7dd3fc; stroke-width: .9; }
+    .cx20r .o2 { transform-origin: 0 0; animation: cx20Spin 22s linear infinite; } .cx20r .cs { transform-origin: 0 0; animation: cx20Spin 60s linear infinite; } .cx20r .o3 { transform-origin: 0 0; animation: cx20Spin 9s linear infinite reverse; }
+    .cx20r .gl { transform-origin: 0 0; animation: cx20Beat 2.6s ease-in-out infinite; }
+    .cx20r.mini { filter: drop-shadow(0 0 6px rgba(34,211,238,.6)); } .cx20r.mini .cs path, .cx20r.mini .o3 { display: none; }
+    @keyframes cx20Spin { to { transform: rotate(360deg); } } @keyframes cx20Beat { 0%,100% { opacity: .8; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.05); } }
+    /* boot */
+    #cx20Boot { position: fixed; inset: 0; z-index: 2147483641; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 42%, #0a2236 0%, #040a14 55%, #020409 100%); transition: opacity .6s ease, transform .6s ease; }
+    #cx20Boot::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(56,189,248,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.05) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 70%); -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 70%); }
+    #cx20Boot.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+    #cx20Boot .bx { position: relative; text-align: center; width: min(420px, 88vw); }
+    #cx20Boot .cx20r { margin: 0 auto; }
+    #cx20Boot .o1, #cx20Boot .o2 { stroke-dasharray: 600; stroke-dashoffset: 600; animation: cx20Draw .9s cubic-bezier(.6,0,.2,1) forwards; } #cx20Boot .o2 { animation: cx20Draw .9s .15s cubic-bezier(.6,0,.2,1) forwards, cx20Spin 22s 1s linear infinite; }
+    #cx20Boot .co { opacity: 0; animation: cx20Pop .3s calc(.35s + var(--i) * .06s) ease-out forwards; }
+    #cx20Boot .tr, #cx20Boot .gl, #cx20Boot .ct { opacity: 0; animation: cx20Ign .5s 1.05s ease-out forwards; } #cx20Boot .gl { animation: cx20Ign .5s 1.05s ease-out forwards, cx20Beat 2.6s 1.6s ease-in-out infinite; }
+    #cx20Boot .o3 { opacity: 0; animation: cx20Ign .4s .9s forwards, cx20Spin 9s linear infinite reverse; }
+    @keyframes cx20Draw { to { stroke-dashoffset: 0; } } @keyframes cx20Pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; } } @keyframes cx20Ign { 0% { opacity: 0; filter: brightness(3); } 60% { opacity: 1; filter: brightness(2); } 100% { opacity: 1; filter: none; } }
+    #cx20Boot h1 { margin: 22px 0 4px; font: 800 26px 'Oxanium', sans-serif; letter-spacing: .42em; color: #e0f2fe; text-indent: .42em; opacity: 0; animation: cx20Up .5s 1.1s forwards; } #cx20Boot h1 b { color: #22d3ee; font-weight: 800; }
+    #cx20Boot .sub { font: 500 10.5px 'Oxanium', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #64748b; margin: 0 0 18px; opacity: 0; animation: cx20Up .5s 1.2s forwards; }
+    #cx20Boot ul { list-style: none; padding: 0; margin: 0 auto 16px; width: 240px; text-align: left; }
+    #cx20Boot li { display: flex; justify-content: space-between; font: 600 11px 'Oxanium', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; padding: 3px 0; border-bottom: 1px dashed rgba(56,189,248,.12); opacity: 0; animation: cx20Up .35s var(--d) forwards; }
+    #cx20Boot li em { font-style: normal; color: #34d399; } #cx20Boot li em::before { content: '● '; font-size: 8px; vertical-align: 2px; }
+    #cx20Boot .bar { width: 240px; height: 2px; margin: 0 auto; background: rgba(56,189,248,.15); border-radius: 2px; overflow: hidden; } #cx20Boot .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #0ea5e9, #67e8f9); box-shadow: 0 0 10px #22d3ee; animation: cx20Load 1.5s .1s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes cx20Up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } } @keyframes cx20Load { to { width: 100%; } }
+    #cxSplash { display: none !important; }
+    /* calmer design: drawing labels, rulers and dotted fills removed */
+    .cx19-tb, #cx19Notes .b, #cx19Notes .c, #cx19Notes .d { display: none !important; }
+    .cx18-hd::before { display: none !important; }
+    .chart-stack-card canvas { background-image: none !important; }
+    .glass-panel { background-image: none !important; }
+    body { background-image: linear-gradient(rgba(56,189,248,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.035) 1px, transparent 1px) !important; background-size: 64px 64px !important; }
+    .cx18-hd { background: none !important; border-bottom: 0 !important; padding: 18px 4px 10px !important; margin-bottom: 14px !important; position: relative; }
+    .cx18-hd::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, var(--sc), color-mix(in srgb, var(--sc) 20%, transparent) 40%, transparent); }
+    .cx18-n { border-radius: 50% !important; width: 30px; height: 30px; display: grid !important; place-items: center; padding: 0 !important; font: 700 12px 'Oxanium', sans-serif !important; background: transparent !important; color: var(--sc) !important; border: 1.5px solid var(--sc); box-shadow: 0 0 12px color-mix(in srgb, var(--sc) 35%, transparent), inset 0 0 8px color-mix(in srgb, var(--sc) 25%, transparent) !important; }
+    .cx18-hd h2 { font-size: 14px !important; letter-spacing: .2em !important; color: #e2e8f0 !important; } .cx18-hd p { font-size: 12px !important; color: #64748b !important; }
+    #viewDashboard .glass-panel { border-radius: 16px; transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease; }
+    @media (hover: hover) { #viewDashboard .cx18-body > .glass-panel:hover, #viewDashboard .cx18-body .grid > .glass-panel:hover { border-color: rgba(34,211,238,.45); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(34,211,238,.12) inset; } }
+    #cx19Notes .a { letter-spacing: .3em !important; color: rgba(125,211,252,.6) !important; }
+    /* header / footer logo */
+    header .cx20r.mini, #cxFoot .cx20r.mini { flex: none; }
+    `;
+    document.head.appendChild(css);
+
+    const start = () => {
+        safe(logos);
+        setInterval(() => { if (!document.hidden) { safe(logos); safe(pie); } }, 2500);
+        setTimeout(() => safe(pie), 2600);
+        const ui = window.updateUI; if (typeof ui === 'function') window.updateUI = function () { const r = ui.apply(this, arguments); setTimeout(() => safe(pie), 50); return r; };
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
