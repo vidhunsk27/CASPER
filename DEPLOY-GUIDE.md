@@ -300,3 +300,4 @@ Top of the Wishlist and Library pages.
 - New boot screen: the arc reactor assembles while the app loads (once per tab session; tap to skip). The server puts it in the page itself so it appears on the very first frame.
 - Sign-in page and header/footer logos are now live arc reactors with the inverted triangle.
 - Check: `/api/health` shows `"version":"mk3-r22"`.
+- Reactor triangle nudged up so it sits dead-centre in the rings (header, footer, boot and sign-in).

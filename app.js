@@ -8571,7 +8571,7 @@ if(/^https?:/.test(A)){window.open(A+'#casper='+encodeURIComponent(s.slice(8)),'
             <circle class="o3" r="54" fill="none" stroke="#67e8f9" stroke-width="2" stroke-dasharray="3 5"/>
             <circle r="46" fill="none" stroke="#0e7490" stroke-width="5"/>
             <circle class="gl" r="44" fill="url(#${gid})"/>
-            <g class="tr"><polygon points="-28,-16 28,-16 0,33" fill="none" stroke="#ecfeff" stroke-width="4.5" stroke-linejoin="round"/><polygon points="-14,-8 14,-8 0,16" fill="#fff" fill-opacity=".92"/></g>
+            <g class="tr"><polygon points="-28,-16 28,-16 0,33" transform="translate(0,-4)" fill="none" stroke="#ecfeff" stroke-width="4.5" stroke-linejoin="round"/><polygon points="-14,-8 14,-8 0,16" transform="translate(0,-4)" fill="#fff" fill-opacity=".92"/></g>
             <circle class="ct" r="4.5" fill="#fff"/></svg>`;
     }
     window.CX20Reactor = reactor;
